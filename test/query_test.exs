@@ -550,5 +550,128 @@ defmodule Chex.QueryTest do
       assert row1.offset == 100
       assert row1.delta == 10
     end
+
+    test "can insert and query UUID values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        user_id UUID
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, user_id: :uuid]
+
+      columns = %{
+        id: [1, 2, 3],
+        user_id: [
+          "550e8400-e29b-41d4-a716-446655440000",
+          "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+          "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+        ]
+      }
+
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 3
+
+      # Verify UUIDs are returned as strings
+      assert result |> Enum.at(0) |> Map.get(:user_id) == "550e8400-e29b-41d4-a716-446655440000"
+      assert result |> Enum.at(1) |> Map.get(:user_id) == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+      assert result |> Enum.at(2) |> Map.get(:user_id) == "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+    end
+
+    test "can insert and query DateTime64 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        timestamp DateTime64(6)
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, timestamp: :datetime64]
+
+      dt1 = ~U[2024-01-01 10:00:00.123456Z]
+      dt2 = ~U[2024-01-02 15:30:45.987654Z]
+      dt3 = ~U[2024-01-03 20:15:30.111222Z]
+
+      columns = %{
+        id: [1, 2, 3],
+        timestamp: [dt1, dt2, dt3]
+      }
+
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 3
+
+      # Verify timestamps are returned as microsecond integers
+      assert result |> Enum.at(0) |> Map.get(:timestamp) == DateTime.to_unix(dt1, :microsecond)
+      assert result |> Enum.at(1) |> Map.get(:timestamp) == DateTime.to_unix(dt2, :microsecond)
+      assert result |> Enum.at(2) |> Map.get(:timestamp) == DateTime.to_unix(dt3, :microsecond)
+    end
+
+    test "can insert and query Decimal values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        price Decimal64(9)
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, price: :decimal]
+
+      dec1 = Decimal.new("123.456789")
+      dec2 = Decimal.new("987.654321")
+      dec3 = Decimal.new("-456.789012")
+
+      columns = %{
+        id: [1, 2, 3],
+        price: [dec1, dec2, dec3]
+      }
+
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 3
+
+      # Verify decimals are returned as scaled int64 values
+      # Scale is 9, so multiply by 10^9
+      assert result |> Enum.at(0) |> Map.get(:price) == 123_456_789_000
+      assert result |> Enum.at(1) |> Map.get(:price) == 987_654_321_000
+      assert result |> Enum.at(2) |> Map.get(:price) == -456_789_012_000
+    end
+
+    test "can insert and query Nullable values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        name Nullable(String),
+        score Nullable(UInt64)
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, name: :nullable_string, score: :nullable_uint64]
+
+      columns = %{
+        id: [1, 2, 3, 4],
+        name: ["Alice", nil, "Charlie", "David"],
+        score: [100, 200, nil, 400]
+      }
+
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 4
+
+      # Verify nullable values are returned correctly
+      assert result |> Enum.at(0) |> Map.get(:name) == "Alice"
+      assert result |> Enum.at(1) |> Map.get(:name) == nil
+      assert result |> Enum.at(2) |> Map.get(:name) == "Charlie"
+
+      assert result |> Enum.at(0) |> Map.get(:score) == 100
+      assert result |> Enum.at(1) |> Map.get(:score) == 200
+      assert result |> Enum.at(2) |> Map.get(:score) == nil
+    end
   end
 end

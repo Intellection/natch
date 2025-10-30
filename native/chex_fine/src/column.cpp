@@ -4,6 +4,9 @@
 #include <clickhouse/columns/numeric.h>
 #include <clickhouse/columns/string.h>
 #include <clickhouse/columns/date.h>
+#include <clickhouse/columns/uuid.h>
+#include <clickhouse/columns/decimal.h>
+#include <clickhouse/columns/nullable.h>
 #include <string>
 #include <memory>
 #include <stdexcept>
@@ -216,6 +219,129 @@ fine::Atom column_datetime_append_bulk(
 }
 FINE_NIF(column_datetime_append_bulk, 0);
 
+// Bulk append DateTime64 values (microsecond timestamps as int64)
+fine::Atom column_datetime64_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<int64_t> ticks) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnDateTime64>(col_res->ptr);
+    for (const auto& tick : ticks) {
+      typed->Append(tick);
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("DateTime64 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_datetime64_append_bulk, 0);
+
+// Bulk append Decimal64 values (scaled int64 values)
+fine::Atom column_decimal_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<int64_t> scaled_values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnDecimal>(col_res->ptr);
+    for (const auto& value : scaled_values) {
+      // Convert int64 to Int128 for ColumnDecimal
+      typed->Append(Int128(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Decimal bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_decimal_append_bulk, 0);
+
+// Bulk append Nullable(UInt64) values
+fine::Atom column_nullable_uint64_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<uint64_t> values,
+    std::vector<uint64_t> nulls) {
+  try {
+    auto nullable_col = std::static_pointer_cast<ColumnNullable>(col_res->ptr);
+    auto nested = nullable_col->Nested()->As<ColumnUInt64>();
+    auto null_map = nullable_col->Nulls()->As<ColumnUInt8>();
+
+    for (size_t i = 0; i < values.size(); i++) {
+      nested->Append(values[i]);
+      null_map->Append(static_cast<uint8_t>(nulls[i]));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Nullable UInt64 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_nullable_uint64_append_bulk, 0);
+
+// Bulk append Nullable(Int64) values
+fine::Atom column_nullable_int64_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<int64_t> values,
+    std::vector<uint64_t> nulls) {
+  try {
+    auto nullable_col = std::static_pointer_cast<ColumnNullable>(col_res->ptr);
+    auto nested = nullable_col->Nested()->As<ColumnInt64>();
+    auto null_map = nullable_col->Nulls()->As<ColumnUInt8>();
+
+    for (size_t i = 0; i < values.size(); i++) {
+      nested->Append(values[i]);
+      null_map->Append(static_cast<uint8_t>(nulls[i]));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Nullable Int64 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_nullable_int64_append_bulk, 0);
+
+// Bulk append Nullable(String) values
+fine::Atom column_nullable_string_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<std::string> values,
+    std::vector<uint64_t> nulls) {
+  try {
+    auto nullable_col = std::static_pointer_cast<ColumnNullable>(col_res->ptr);
+    auto nested = nullable_col->Nested()->As<ColumnString>();
+    auto null_map = nullable_col->Nulls()->As<ColumnUInt8>();
+
+    for (size_t i = 0; i < values.size(); i++) {
+      nested->Append(values[i]);
+      null_map->Append(static_cast<uint8_t>(nulls[i]));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Nullable String bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_nullable_string_append_bulk, 0);
+
+// Bulk append Nullable(Float64) values
+fine::Atom column_nullable_float64_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<double> values,
+    std::vector<uint64_t> nulls) {
+  try {
+    auto nullable_col = std::static_pointer_cast<ColumnNullable>(col_res->ptr);
+    auto nested = nullable_col->Nested()->As<ColumnFloat64>();
+    auto null_map = nullable_col->Nulls()->As<ColumnUInt8>();
+
+    for (size_t i = 0; i < values.size(); i++) {
+      nested->Append(values[i]);
+      null_map->Append(static_cast<uint8_t>(nulls[i]));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Nullable Float64 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_nullable_float64_append_bulk, 0);
+
 //
 // PHASE 5C - ADDITIONAL TYPE SUPPORT
 // Bulk append operations for Bool, Date, Float32, and additional integer types
@@ -356,3 +482,26 @@ fine::Atom column_float32_append_bulk(
   }
 }
 FINE_NIF(column_float32_append_bulk, 0);
+
+// Bulk append UUID values (separate lists of high and low 64-bit values)
+fine::Atom column_uuid_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<uint64_t> highs,
+    std::vector<uint64_t> lows) {
+  try {
+    if (highs.size() != lows.size()) {
+      throw std::runtime_error("UUID highs and lows lists must be same length");
+    }
+
+    auto typed = std::static_pointer_cast<ColumnUUID>(col_res->ptr);
+    for (size_t i = 0; i < highs.size(); i++) {
+      // UUID is std::pair<uint64_t, uint64_t> where first=high, second=low
+      typed->Append(UUID{highs[i], lows[i]});
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("UUID bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_uuid_append_bulk, 0);

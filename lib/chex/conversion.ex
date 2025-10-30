@@ -208,6 +208,17 @@ defmodule Chex.Conversion do
     end
   end
 
+  defp validate_values_for_type(values, :datetime64) do
+    case Enum.find(values, fn
+           %DateTime{} -> false
+           val when is_integer(val) -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
   defp validate_values_for_type(values, :bool) do
     case Enum.find(values, fn val -> not is_boolean(val) end) do
       nil -> :ok
@@ -274,6 +285,83 @@ defmodule Chex.Conversion do
     end
   end
 
+  defp validate_values_for_type(values, :uuid) do
+    case Enum.find(values, fn
+           # Accept standard UUID string format
+           val when is_binary(val) ->
+             hex_str = String.replace(val, "-", "")
+
+             not (String.length(hex_str) == 32 and String.match?(hex_str, ~r/^[0-9a-fA-F]{32}$/))
+
+           # Accept 16-byte binary
+           <<_::128>> ->
+             false
+
+           _ ->
+             true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :decimal) do
+    case Enum.find(values, fn
+           %Decimal{} -> false
+           val when is_integer(val) -> false
+           val when is_float(val) -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  # Nullable types accept nil plus their base type
+  defp validate_values_for_type(values, :nullable_uint64) do
+    case Enum.find(values, fn
+           nil -> false
+           val when is_integer(val) and val >= 0 -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :nullable_int64) do
+    case Enum.find(values, fn
+           nil -> false
+           val when is_integer(val) -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :nullable_string) do
+    case Enum.find(values, fn
+           nil -> false
+           val when is_binary(val) -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :nullable_float64) do
+    case Enum.find(values, fn
+           nil -> false
+           val when is_float(val) or is_integer(val) -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
   defp validate_values_for_type(_values, type) do
     {:error, "Unsupported type: #{inspect(type)}"}
   end
@@ -289,7 +377,14 @@ defmodule Chex.Conversion do
   defp type_to_name(:float64), do: "Float64"
   defp type_to_name(:float32), do: "Float32"
   defp type_to_name(:datetime), do: "DateTime"
+  defp type_to_name(:datetime64), do: "DateTime64(6)"
   defp type_to_name(:date), do: "Date"
   defp type_to_name(:bool), do: "Bool"
+  defp type_to_name(:uuid), do: "UUID"
+  defp type_to_name(:decimal), do: "Decimal64(9)"
+  defp type_to_name(:nullable_uint64), do: "Nullable(UInt64)"
+  defp type_to_name(:nullable_int64), do: "Nullable(Int64)"
+  defp type_to_name(:nullable_string), do: "Nullable(String)"
+  defp type_to_name(:nullable_float64), do: "Nullable(Float64)"
   defp type_to_name(type), do: inspect(type)
 end

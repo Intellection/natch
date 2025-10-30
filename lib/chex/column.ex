@@ -38,10 +38,17 @@ defmodule Chex.Column do
 
   **Dates/Times:**
   - `:datetime` - DateTime (Unix timestamp in seconds)
+  - `:datetime64` - DateTime64(6) (Unix timestamp in microseconds)
   - `:date` - Date (days since epoch)
 
   **Boolean:**
   - `:bool` - Bool (stored as UInt8)
+
+  **UUID:**
+  - `:uuid` - UUID (128-bit universally unique identifier)
+
+  **Decimal:**
+  - `:decimal` - Decimal64(9) (fixed-point decimal with 9 decimal places)
 
   ## Examples
 
@@ -133,6 +140,18 @@ defmodule Chex.Column do
     Native.column_datetime_append_bulk(ref, timestamps)
   end
 
+  def append_bulk(%__MODULE__{type: :datetime64, ref: ref}, values) when is_list(values) do
+    # Convert all to Unix timestamps with microsecond precision
+    ticks =
+      Enum.map(values, fn
+        %DateTime{} = dt -> DateTime.to_unix(dt, :microsecond)
+        ticks when is_integer(ticks) -> ticks
+        other -> raise ArgumentError, "Invalid datetime64 value: #{inspect(other)}"
+      end)
+
+    Native.column_datetime64_append_bulk(ref, ticks)
+  end
+
   def append_bulk(%__MODULE__{type: :date, ref: ref}, values) when is_list(values) do
     # Convert all to days since epoch
     days =
@@ -222,6 +241,78 @@ defmodule Chex.Column do
     Native.column_float32_append_bulk(ref, float_values)
   end
 
+  def append_bulk(%__MODULE__{type: :uuid, ref: ref}, values) when is_list(values) do
+    # Parse UUID strings to extract high/low 64-bit pairs
+    uuid_pairs =
+      Enum.map(values, fn
+        <<_::128>> = uuid_bin ->
+          # 16-byte binary UUID
+          <<high::64, low::64>> = uuid_bin
+          {high, low}
+
+        uuid_str when is_binary(uuid_str) ->
+          parse_uuid(uuid_str)
+
+        other ->
+          raise ArgumentError, "Invalid UUID value: #{inspect(other)}"
+      end)
+
+    # Split into separate lists of highs and lows
+    {highs, lows} = Enum.unzip(uuid_pairs)
+
+    Native.column_uuid_append_bulk(ref, highs, lows)
+  end
+
+  def append_bulk(%__MODULE__{type: :decimal, ref: ref}, values) when is_list(values) do
+    # Convert Decimal structs to scaled int64 values
+    # Decimal64(9) means scale=9, so multiply by 10^9
+    scale = 9
+    multiplier = :math.pow(10, scale) |> trunc()
+
+    scaled_values =
+      Enum.map(values, fn
+        %Decimal{} = decimal ->
+          # Convert Decimal to float, multiply by 10^scale, convert to int64
+          decimal
+          |> Decimal.mult(Decimal.new(multiplier))
+          |> Decimal.to_integer()
+
+        value when is_integer(value) ->
+          # Already scaled integer
+          value
+
+        value when is_float(value) ->
+          # Scale the float value
+          trunc(value * multiplier)
+
+        other ->
+          raise ArgumentError, "Invalid decimal value: #{inspect(other)}"
+      end)
+
+    Native.column_decimal_append_bulk(ref, scaled_values)
+  end
+
+  # Nullable type handlers
+  def append_bulk(%__MODULE__{type: :nullable_uint64, ref: ref}, values) when is_list(values) do
+    {actual_values, nulls} = split_nullable_values(values, 0)
+    Native.column_nullable_uint64_append_bulk(ref, actual_values, nulls)
+  end
+
+  def append_bulk(%__MODULE__{type: :nullable_int64, ref: ref}, values) when is_list(values) do
+    {actual_values, nulls} = split_nullable_values(values, 0)
+    Native.column_nullable_int64_append_bulk(ref, actual_values, nulls)
+  end
+
+  def append_bulk(%__MODULE__{type: :nullable_string, ref: ref}, values) when is_list(values) do
+    {actual_values, nulls} = split_nullable_values(values, "")
+    Native.column_nullable_string_append_bulk(ref, actual_values, nulls)
+  end
+
+  def append_bulk(%__MODULE__{type: :nullable_float64, ref: ref}, values) when is_list(values) do
+    {actual_values, nulls} = split_nullable_values(values, 0.0)
+    Native.column_nullable_float64_append_bulk(ref, actual_values, nulls)
+  end
+
   def append_bulk(%__MODULE__{type: type}, values) when is_list(values) do
     raise ArgumentError,
           "Invalid values #{inspect(values)} for column type #{type}"
@@ -260,10 +351,45 @@ defmodule Chex.Column do
   defp elixir_type_to_clickhouse(:float32), do: "Float32"
   defp elixir_type_to_clickhouse(:string), do: "String"
   defp elixir_type_to_clickhouse(:datetime), do: "DateTime"
+  defp elixir_type_to_clickhouse(:datetime64), do: "DateTime64(6)"
   defp elixir_type_to_clickhouse(:date), do: "Date"
   defp elixir_type_to_clickhouse(:bool), do: "Bool"
+  defp elixir_type_to_clickhouse(:uuid), do: "UUID"
+  defp elixir_type_to_clickhouse(:decimal), do: "Decimal64(9)"
+  # Nullable types
+  defp elixir_type_to_clickhouse(:nullable_uint64), do: "Nullable(UInt64)"
+  defp elixir_type_to_clickhouse(:nullable_int64), do: "Nullable(Int64)"
+  defp elixir_type_to_clickhouse(:nullable_string), do: "Nullable(String)"
+  defp elixir_type_to_clickhouse(:nullable_float64), do: "Nullable(Float64)"
 
   defp elixir_type_to_clickhouse(type) do
     raise ArgumentError, "Unsupported column type: #{inspect(type)}"
+  end
+
+  # Helper function to split nullable values into actual values and null flags
+  # Returns {[values], [nulls]} where null flags are UInt8 (0 = not null, 1 = null)
+  defp split_nullable_values(values, default_value) do
+    Enum.map_reduce(values, [], fn
+      nil, nulls -> {default_value, [1 | nulls]}
+      value, nulls -> {value, [0 | nulls]}
+    end)
+    |> then(fn {vals, nulls} -> {vals, Enum.reverse(nulls)} end)
+  end
+
+  # Parse UUID string like "550e8400-e29b-41d4-a716-446655440000" to {high, low} uint64 pair
+  defp parse_uuid(uuid_str) when is_binary(uuid_str) do
+    # Remove hyphens and validate format
+    hex_str = String.replace(uuid_str, "-", "")
+
+    unless String.length(hex_str) == 32 and String.match?(hex_str, ~r/^[0-9a-fA-F]{32}$/) do
+      raise ArgumentError, "Invalid UUID format: #{uuid_str}"
+    end
+
+    # Convert to binary (16 bytes)
+    uuid_bin = Base.decode16!(hex_str, case: :mixed)
+
+    # Split into high and low 64-bit integers
+    <<high::64, low::64>> = uuid_bin
+    {high, low}
   end
 end

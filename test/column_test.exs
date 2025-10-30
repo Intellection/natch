@@ -428,6 +428,238 @@ defmodule Chex.ColumnTest do
     end
   end
 
+  describe "UUID column operations" do
+    test "can create UUID column" do
+      col = Column.new(:uuid)
+      assert %Column{type: :uuid, clickhouse_type: "UUID"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append UUID strings" do
+      col = Column.new(:uuid)
+      uuid = "550e8400-e29b-41d4-a716-446655440000"
+      assert :ok = Column.append_bulk(col, [uuid])
+      assert Column.size(col) == 1
+    end
+
+    test "can append multiple UUIDs" do
+      col = Column.new(:uuid)
+
+      uuids = [
+        "550e8400-e29b-41d4-a716-446655440000",
+        "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+        "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+      ]
+
+      assert :ok = Column.append_bulk(col, uuids)
+      assert Column.size(col) == 3
+    end
+
+    test "can append UUID as 16-byte binary" do
+      col = Column.new(:uuid)
+      # 550e8400-e29b-41d4-a716-446655440000
+      uuid_bin =
+        <<0x55, 0x0E, 0x84, 0x00, 0xE2, 0x9B, 0x41, 0xD4, 0xA7, 0x16, 0x44, 0x66, 0x55, 0x44,
+          0x00, 0x00>>
+
+      assert :ok = Column.append_bulk(col, [uuid_bin])
+      assert Column.size(col) == 1
+    end
+
+    test "accepts UUID with uppercase hex" do
+      col = Column.new(:uuid)
+      uuid = "550E8400-E29B-41D4-A716-446655440000"
+      assert :ok = Column.append_bulk(col, [uuid])
+      assert Column.size(col) == 1
+    end
+
+    test "accepts UUID without hyphens" do
+      col = Column.new(:uuid)
+      uuid = "550e8400e29b41d4a716446655440000"
+      assert :ok = Column.append_bulk(col, [uuid])
+      assert Column.size(col) == 1
+    end
+
+    test "raises on invalid UUID format" do
+      col = Column.new(:uuid)
+
+      assert_raise ArgumentError, ~r/Invalid UUID format/, fn ->
+        Column.append_bulk(col, ["not-a-uuid"])
+      end
+    end
+
+    test "raises on wrong length UUID" do
+      col = Column.new(:uuid)
+
+      assert_raise ArgumentError, ~r/Invalid UUID format/, fn ->
+        Column.append_bulk(col, ["550e8400-e29b-41d4-a716"])
+      end
+    end
+
+    test "raises on non-hex characters" do
+      col = Column.new(:uuid)
+
+      assert_raise ArgumentError, ~r/Invalid UUID format/, fn ->
+        Column.append_bulk(col, ["550e8400-e29b-41d4-a716-44665544000g"])
+      end
+    end
+  end
+
+  describe "DateTime64 column operations" do
+    test "can create DateTime64 column" do
+      col = Column.new(:datetime64)
+      assert %Column{type: :datetime64, clickhouse_type: "DateTime64(6)"} = col
+      assert Column.size(col) == 0
+    end
+
+    test "can append DateTime structs with microsecond precision" do
+      col = Column.new(:datetime64)
+      dt1 = ~U[2024-01-01 10:00:00.123456Z]
+      dt2 = ~U[2024-01-02 15:30:45.987654Z]
+
+      :ok = Column.append_bulk(col, [dt1, dt2])
+      assert Column.size(col) == 2
+    end
+
+    test "can append multiple DateTime64 values" do
+      col = Column.new(:datetime64)
+
+      values = [
+        ~U[2024-01-01 10:00:00.000001Z],
+        ~U[2024-01-02 11:00:00.000002Z],
+        ~U[2024-01-03 12:00:00.000003Z]
+      ]
+
+      :ok = Column.append_bulk(col, values)
+      assert Column.size(col) == 3
+    end
+
+    test "can append integer microsecond timestamps" do
+      col = Column.new(:datetime64)
+      # January 1, 2024 00:00:00 UTC in microseconds
+      timestamp_us = 1_704_067_200_000_000
+
+      :ok = Column.append_bulk(col, [timestamp_us])
+      assert Column.size(col) == 1
+    end
+
+    test "accepts mix of DateTime and integers" do
+      col = Column.new(:datetime64)
+      dt = ~U[2024-01-01 10:00:00.123456Z]
+      timestamp_us = 1_704_110_400_000_000
+
+      :ok = Column.append_bulk(col, [dt, timestamp_us])
+      assert Column.size(col) == 2
+    end
+
+    test "raises on invalid datetime64 value" do
+      col = Column.new(:datetime64)
+
+      assert_raise ArgumentError, ~r/Invalid datetime64 value/, fn ->
+        Column.append_bulk(col, ["invalid"])
+      end
+    end
+  end
+
+  describe "Decimal column operations" do
+    test "can create Decimal column" do
+      col = Column.new(:decimal)
+      assert %Column{type: :decimal, clickhouse_type: "Decimal64(9)"} = col
+      assert Column.size(col) == 0
+    end
+
+    test "can append Decimal structs" do
+      col = Column.new(:decimal)
+      dec1 = Decimal.new("123.456789012")
+      dec2 = Decimal.new("987.654321098")
+
+      :ok = Column.append_bulk(col, [dec1, dec2])
+      assert Column.size(col) == 2
+    end
+
+    test "can append multiple Decimal values" do
+      col = Column.new(:decimal)
+
+      values = [
+        Decimal.new("1.123456789"),
+        Decimal.new("2.234567890"),
+        Decimal.new("3.345678901")
+      ]
+
+      :ok = Column.append_bulk(col, values)
+      assert Column.size(col) == 3
+    end
+
+    test "can append integer values" do
+      col = Column.new(:decimal)
+      :ok = Column.append_bulk(col, [100, 200, 300])
+      assert Column.size(col) == 3
+    end
+
+    test "can append float values" do
+      col = Column.new(:decimal)
+      :ok = Column.append_bulk(col, [1.5, 2.75, 3.125])
+      assert Column.size(col) == 3
+    end
+
+    test "accepts mix of Decimal, integers, and floats" do
+      col = Column.new(:decimal)
+      dec = Decimal.new("100.5")
+
+      :ok = Column.append_bulk(col, [dec, 200, 300.75])
+      assert Column.size(col) == 3
+    end
+
+    test "handles negative Decimal values" do
+      col = Column.new(:decimal)
+      dec1 = Decimal.new("-123.456")
+      dec2 = Decimal.new("-987.654")
+
+      :ok = Column.append_bulk(col, [dec1, dec2])
+      assert Column.size(col) == 2
+    end
+
+    test "raises on invalid decimal value" do
+      col = Column.new(:decimal)
+
+      assert_raise ArgumentError, ~r/Invalid decimal value/, fn ->
+        Column.append_bulk(col, ["invalid"])
+      end
+    end
+  end
+
+  describe "Nullable column operations" do
+    test "can create Nullable(UInt64) column" do
+      col = Column.new(:nullable_uint64)
+      assert %Column{type: :nullable_uint64, clickhouse_type: "Nullable(UInt64)"} = col
+      assert Column.size(col) == 0
+    end
+
+    test "can append values with nils to Nullable(UInt64)" do
+      col = Column.new(:nullable_uint64)
+      :ok = Column.append_bulk(col, [1, nil, 3, nil, 5])
+      assert Column.size(col) == 5
+    end
+
+    test "can append values with nils to Nullable(String)" do
+      col = Column.new(:nullable_string)
+      :ok = Column.append_bulk(col, ["hello", nil, "world", nil])
+      assert Column.size(col) == 4
+    end
+
+    test "can append all nils to Nullable column" do
+      col = Column.new(:nullable_int64)
+      :ok = Column.append_bulk(col, [nil, nil, nil])
+      assert Column.size(col) == 3
+    end
+
+    test "can append all values to Nullable column" do
+      col = Column.new(:nullable_float64)
+      :ok = Column.append_bulk(col, [1.5, 2.5, 3.5])
+      assert Column.size(col) == 3
+    end
+  end
+
   describe "Mixed operations" do
     test "can work with multiple columns simultaneously" do
       col1 = Column.new(:uint64)

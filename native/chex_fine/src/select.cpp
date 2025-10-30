@@ -5,9 +5,12 @@
 #include <clickhouse/columns/numeric.h>
 #include <clickhouse/columns/string.h>
 #include <clickhouse/columns/date.h>
+#include <clickhouse/columns/uuid.h>
 #include <string>
 #include <vector>
 #include <memory>
+#include <sstream>
+#include <iomanip>
 
 using namespace clickhouse;
 
@@ -89,9 +92,67 @@ ERL_NIF_TERM block_to_maps_impl(ErlNifEnv *env, std::shared_ptr<Block> block) {
       for (size_t i = 0; i < row_count; i++) {
         column_values.push_back(enif_make_uint64(env, datetime_col->At(i)));
       }
+    } else if (auto datetime64_col = col->As<ColumnDateTime64>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_int64(env, datetime64_col->At(i)));
+      }
     } else if (auto date_col = col->As<ColumnDate>()) {
       for (size_t i = 0; i < row_count; i++) {
         column_values.push_back(enif_make_uint64(env, date_col->RawAt(i)));
+      }
+    } else if (auto uuid_col = col->As<ColumnUUID>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        UUID uuid = uuid_col->At(i);
+        // Convert UUID to standard string format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        std::ostringstream oss;
+        oss << std::hex << std::setfill('0');
+
+        // high 64 bits
+        uint64_t high = uuid.first;
+        oss << std::setw(8) << ((high >> 32) & 0xFFFFFFFF) << "-";
+        oss << std::setw(4) << ((high >> 16) & 0xFFFF) << "-";
+        oss << std::setw(4) << (high & 0xFFFF) << "-";
+
+        // low 64 bits
+        uint64_t low = uuid.second;
+        oss << std::setw(4) << ((low >> 48) & 0xFFFF) << "-";
+        oss << std::setw(12) << (low & 0xFFFFFFFFFFFF);
+
+        std::string uuid_str = oss.str();
+        ErlNifBinary bin;
+        enif_alloc_binary(uuid_str.size(), &bin);
+        std::memcpy(bin.data, uuid_str.data(), uuid_str.size());
+        column_values.push_back(enif_make_binary(env, &bin));
+      }
+    } else if (auto decimal_col = col->As<ColumnDecimal>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        Int128 value = decimal_col->At(i);
+        // Convert Int128 to int64 for Elixir (assumes value fits in int64)
+        // Elixir will convert back to Decimal by dividing by 10^scale
+        int64_t scaled_value = static_cast<int64_t>(value);
+        column_values.push_back(enif_make_int64(env, scaled_value));
+      }
+    } else if (auto nullable_col = col->As<ColumnNullable>()) {
+      // Handle nullable columns
+      auto nested = nullable_col->Nested();
+
+      for (size_t i = 0; i < row_count; i++) {
+        if (nullable_col->IsNull(i)) {
+          column_values.push_back(enif_make_atom(env, "nil"));
+        } else if (auto uint64_col = nested->As<ColumnUInt64>()) {
+          column_values.push_back(enif_make_uint64(env, uint64_col->At(i)));
+        } else if (auto int64_col = nested->As<ColumnInt64>()) {
+          column_values.push_back(enif_make_int64(env, int64_col->At(i)));
+        } else if (auto string_col = nested->As<ColumnString>()) {
+          std::string_view val_view = string_col->At(i);
+          std::string val(val_view);
+          ErlNifBinary bin;
+          enif_alloc_binary(val.size(), &bin);
+          std::memcpy(bin.data, val.data(), val.size());
+          column_values.push_back(enif_make_binary(env, &bin));
+        } else if (auto float64_col = nested->As<ColumnFloat64>()) {
+          column_values.push_back(enif_make_double(env, float64_col->At(i)));
+        }
       }
     }
 
