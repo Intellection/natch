@@ -65,6 +65,10 @@ defmodule Chex.Native do
   def column_map_append_from_array(_map_col, _array_tuple_col),
     do: :erlang.nif_error(:nif_not_loaded)
 
+  # LowCardinality column NIF
+  def column_lowcardinality_append_from_column(_lc_col, _source_col),
+    do: :erlang.nif_error(:nif_not_loaded)
+
   # Nullable type NIFs
   def column_nullable_uint64_append_bulk(_col, _values, _nulls),
     do: :erlang.nif_error(:nif_not_loaded)

@@ -336,6 +336,74 @@ defmodule Chex.Column do
     append_array_generic(col, arrays)
   end
 
+  # LowCardinality type - transparent optimization
+  # Dictionary encoding is handled automatically by ClickHouse
+  def append_bulk(%__MODULE__{type: {:low_cardinality, inner_type}, ref: lc_ref}, values)
+      when is_list(values) do
+    # Build a temporary column with the inner type
+    temp_col = new(inner_type)
+    append_bulk(temp_col, values)
+
+    # Pass to LowCardinality NIF which handles dictionary building
+    Native.column_lowcardinality_append_from_column(lc_ref, temp_col.ref)
+  end
+
+  # Enum8 type - stored as Int8 with named values
+  def append_bulk(%__MODULE__{type: {:enum8, items}, ref: ref}, values) when is_list(values) do
+    # Convert string names to integers if needed
+    int_values =
+      case hd(values) do
+        val when is_integer(val) ->
+          # Already integers, validate range
+          unless Enum.all?(values, &(is_integer(&1) and &1 >= -128 and &1 <= 127)) do
+            raise ArgumentError, "All values must be integers -128..127 for Enum8 column"
+          end
+
+          values
+
+        val when is_binary(val) ->
+          # String names, look up values from items definition
+          enum_map = Map.new(items)
+
+          Enum.map(values, fn name ->
+            case Map.fetch(enum_map, name) do
+              {:ok, val} -> val
+              :error -> raise ArgumentError, "Unknown enum name: #{name}"
+            end
+          end)
+      end
+
+    Native.column_int8_append_bulk(ref, int_values)
+  end
+
+  # Enum16 type - stored as Int16 with named values
+  def append_bulk(%__MODULE__{type: {:enum16, items}, ref: ref}, values) when is_list(values) do
+    # Convert string names to integers if needed
+    int_values =
+      case hd(values) do
+        val when is_integer(val) ->
+          # Already integers, validate range
+          unless Enum.all?(values, &(is_integer(&1) and &1 >= -32_768 and &1 <= 32_767)) do
+            raise ArgumentError, "All values must be integers -32768..32767 for Enum16 column"
+          end
+
+          values
+
+        val when is_binary(val) ->
+          # String names, look up values from items definition
+          enum_map = Map.new(items)
+
+          Enum.map(values, fn name ->
+            case Map.fetch(enum_map, name) do
+              {:ok, val} -> val
+              :error -> raise ArgumentError, "Unknown enum name: #{name}"
+            end
+          end)
+      end
+
+    Native.column_int16_append_bulk(ref, int_values)
+  end
+
   def append_bulk(%__MODULE__{type: type}, values) when is_list(values) do
     raise ArgumentError,
           "Invalid values #{inspect(values)} for column type #{type}"
@@ -535,6 +603,22 @@ defmodule Chex.Column do
 
   defp elixir_type_to_clickhouse({:map, key_type, value_type}) do
     "Map(#{elixir_type_to_clickhouse(key_type)}, #{elixir_type_to_clickhouse(value_type)})"
+  end
+
+  defp elixir_type_to_clickhouse({:low_cardinality, inner_type}) do
+    "LowCardinality(#{elixir_type_to_clickhouse(inner_type)})"
+  end
+
+  defp elixir_type_to_clickhouse({:enum8, items}) when is_list(items) do
+    # Format: Enum8('name1' = 1, 'name2' = 2)
+    items_str = Enum.map_join(items, ", ", fn {name, val} -> "'#{name}' = #{val}" end)
+    "Enum8(#{items_str})"
+  end
+
+  defp elixir_type_to_clickhouse({:enum16, items}) when is_list(items) do
+    # Format: Enum16('name1' = 1, 'name2' = 2)
+    items_str = Enum.map_join(items, ", ", fn {name, val} -> "'#{name}' = #{val}" end)
+    "Enum16(#{items_str})"
   end
 
   defp elixir_type_to_clickhouse(type) do

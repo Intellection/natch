@@ -9,6 +9,8 @@
 #include <clickhouse/columns/array.h>
 #include <clickhouse/columns/tuple.h>
 #include <clickhouse/columns/map.h>
+#include <clickhouse/columns/lowcardinality.h>
+#include <clickhouse/columns/enum.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -187,6 +189,47 @@ ERL_NIF_TERM column_to_elixir_list(ErlNifEnv *env, ColumnRef col) {
       } else {
         // Fallback for unexpected structure
         values.push_back(enif_make_new_map(env));
+      }
+    }
+  } else if (auto enum8_col = col->As<ColumnEnum8>()) {
+    // Handle Enum8 columns - return string names
+    for (size_t i = 0; i < count; i++) {
+      std::string_view name = enum8_col->NameAt(i);
+      ErlNifBinary bin;
+      enif_alloc_binary(name.size(), &bin);
+      std::memcpy(bin.data, name.data(), name.size());
+      values.push_back(enif_make_binary(env, &bin));
+    }
+  } else if (auto enum16_col = col->As<ColumnEnum16>()) {
+    // Handle Enum16 columns - return string names
+    for (size_t i = 0; i < count; i++) {
+      std::string_view name = enum16_col->NameAt(i);
+      ErlNifBinary bin;
+      enif_alloc_binary(name.size(), &bin);
+      std::memcpy(bin.data, name.data(), name.size());
+      values.push_back(enif_make_binary(env, &bin));
+    }
+  } else if (auto lc_col = col->As<ColumnLowCardinality>()) {
+    // Handle LowCardinality columns - decode values from dictionary
+    // For each row, get the decoded value by calling GetItem
+    // GetItem internally looks up the dictionary index and returns the value
+    for (size_t i = 0; i < count; i++) {
+      auto item = lc_col->GetItem(i);
+
+      // Convert ItemView to Elixir term based on type
+      if (item.type == Type::String) {
+        auto val = item.get<std::string_view>();
+        ErlNifBinary bin;
+        enif_alloc_binary(val.size(), &bin);
+        std::memcpy(bin.data, val.data(), val.size());
+        values.push_back(enif_make_binary(env, &bin));
+      } else if (item.type == Type::Void) {
+        // Null value
+        values.push_back(enif_make_atom(env, "nil"));
+      } else {
+        // For other types, would need more handling
+        // For now, throw an error
+        throw std::runtime_error("Unsupported LowCardinality inner type");
       }
     }
   } else if (auto nullable_col = col->As<ColumnNullable>()) {

@@ -10,6 +10,7 @@
 #include <clickhouse/columns/array.h>
 #include <clickhouse/columns/tuple.h>
 #include <clickhouse/columns/map.h>
+#include <clickhouse/columns/lowcardinality.h>
 #include <string>
 #include <memory>
 #include <stdexcept>
@@ -661,3 +662,35 @@ fine::Atom column_map_append_from_array(
   }
 }
 FINE_NIF(column_map_append_from_array, 0);
+
+// ============================================================================
+// LowCardinality Type Support
+// ============================================================================
+
+// Append values to LowCardinality column via a temporary column
+// LowCardinality automatically builds dictionary and handles deduplication
+fine::Atom column_lowcardinality_append_from_column(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> lc_col_res,
+    fine::ResourcePtr<ColumnResource> source_col_res) {
+  try {
+    if (!lc_col_res->ptr) {
+      throw std::runtime_error("LowCardinality column pointer is null");
+    }
+    if (!source_col_res->ptr) {
+      throw std::runtime_error("Source column pointer is null");
+    }
+
+    // Create a temporary LowCardinality column from the source data
+    auto temp_lc = std::make_shared<ColumnLowCardinality>(source_col_res->ptr);
+
+    // Append to the main LowCardinality column
+    // This merges the dictionaries and updates indices
+    lc_col_res->ptr->Append(temp_lc);
+
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("LowCardinality append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_lowcardinality_append_from_column, 0);

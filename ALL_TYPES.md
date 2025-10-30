@@ -149,15 +149,25 @@ Native.column_array_append_from_column(outer_ref, nested_col.ref, [2])
 ✅ **Array(Tuple(...))** - Nested structures work automatically!
 ✅ **Array(Map(...))** - Nested structures work automatically!
 
-### Not Yet Implemented (Future)
+✅ **LowCardinality(T)** - Dictionary encoding optimization
+- Transparent wrapper for high-cardinality data with many duplicates
+- API: `Column.append_bulk(col, values)` - same as base type!
+- Performance: Automatic dictionary encoding by ClickHouse
+- SELECT: Returns decoded values (transparent to user)
+- Example: `LowCardinality(String)` → `["apple", "banana", "apple"]` (optimized storage)
 
-These require additional wrapper implementations:
+✅ **Enum8/Enum16** - Named integer values
+- Enum8: Int8 with string names (-128 to 127)
+- Enum16: Int16 with string names (-32768 to 32767)
+- API: `Column.append_bulk(col, values)` - accepts integers OR string names
+- SELECT: Returns string names (readable)
+- Example: `Enum8('small' = 1, 'large' = 2)` → `["small", "large", "small"]`
 
-❌ `LowCardinality(T)` - Dictionary encoding wrapper
-❌ `Enum(...)` - Named integer values
-
-But once implemented, they'll automatically work in arrays:
-- `Array(LowCardinality(String))` ← Would work via generic path
+All composite types now work in arrays via generic path:
+- `Array(LowCardinality(String))` ✅
+- `Array(Enum8(...))` ✅
+- `Array(Tuple(...))` ✅
+- `Array(Map(...))` ✅
 
 ## Performance Characteristics
 
@@ -341,6 +351,33 @@ Column.append_map_arrays(col, keys_arrays, values_arrays)
 # Array(Tuple(...)) - nested structures work!
 col = Column.new({:array, {:tuple, [:string, :uint64]}})
 # ... complex nesting supported
+```
+
+### LowCardinality and Enum Examples
+
+```elixir
+# LowCardinality(String) - automatic dictionary encoding
+col = Column.new({:low_cardinality, :string})
+# Perfect for data with many duplicates
+values = ["apple", "banana", "apple", "cherry", "banana", "apple"]
+Column.append_bulk(col, values)
+# ClickHouse stores as dictionary {"apple" => 0, "banana" => 1, "cherry" => 2}
+# and indices [0, 1, 0, 2, 1, 0] - much more efficient!
+
+# Enum8 - small set of named values
+col = Column.new({:enum8, [{"small", 1}, {"medium", 2}, {"large", 3}]})
+# Can append using integer values
+Column.append_bulk(col, [1, 2, 3, 1])
+# Or using string names (automatically converted)
+Column.append_bulk(col, ["small", "large", "medium"])
+
+# Enum16 - larger value range
+col = Column.new({:enum16, [{"bronze", 100}, {"silver", 200}, {"gold", 300}]})
+Column.append_bulk(col, ["gold", "bronze", "silver", "gold"])
+
+# All work in arrays too!
+col = Column.new({:array, {:low_cardinality, :string}})
+Column.append_bulk(col, [["a", "b", "a"], ["c", "b"]])
 ```
 
 ## Summary

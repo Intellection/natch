@@ -1047,4 +1047,102 @@ defmodule Chex.ColumnTest do
       end
     end
   end
+
+  describe "LowCardinality column operations" do
+    test "creates LowCardinality(String) column" do
+      col = Column.new({:low_cardinality, :string})
+      assert col.type == {:low_cardinality, :string}
+      assert col.clickhouse_type == "LowCardinality(String)"
+      assert Column.size(col) == 0
+    end
+
+    test "appends LowCardinality(String) values with many duplicates" do
+      col = Column.new({:low_cardinality, :string})
+
+      # Many duplicates - perfect for LowCardinality
+      values = ["apple", "banana", "apple", "cherry", "banana", "apple", "banana"]
+      Column.append_bulk(col, values)
+
+      assert Column.size(col) == 7
+    end
+
+    test "appends LowCardinality(String) with all unique values" do
+      col = Column.new({:low_cardinality, :string})
+
+      values = ["unique1", "unique2", "unique3"]
+      Column.append_bulk(col, values)
+
+      assert Column.size(col) == 3
+    end
+
+    test "handles empty LowCardinality column" do
+      col = Column.new({:low_cardinality, :string})
+      Column.append_bulk(col, [])
+      assert Column.size(col) == 0
+    end
+
+    test "appends multiple batches to LowCardinality column" do
+      col = Column.new({:low_cardinality, :string})
+
+      Column.append_bulk(col, ["a", "b", "c"])
+      assert Column.size(col) == 3
+
+      Column.append_bulk(col, ["a", "b", "d"])
+      assert Column.size(col) == 6
+    end
+  end
+
+  describe "Enum8/Enum16 column operations" do
+    test "creates Enum8 column" do
+      col = Column.new({:enum8, [{"small", 1}, {"medium", 2}, {"large", 3}]})
+      assert col.type == {:enum8, [{"small", 1}, {"medium", 2}, {"large", 3}]}
+      assert col.clickhouse_type == "Enum8('small' = 1, 'medium' = 2, 'large' = 3)"
+      assert Column.size(col) == 0
+    end
+
+    test "creates Enum16 column" do
+      col = Column.new({:enum16, [{"red", 1}, {"green", 2}, {"blue", 3}]})
+      assert col.type == {:enum16, [{"red", 1}, {"green", 2}, {"blue", 3}]}
+      assert col.clickhouse_type == "Enum16('red' = 1, 'green' = 2, 'blue' = 3)"
+      assert Column.size(col) == 0
+    end
+
+    test "appends Enum8 values using integer values" do
+      col = Column.new({:enum8, [{"low", 1}, {"high", 2}]})
+      Column.append_bulk(col, [1, 2, 1, 2])
+      assert Column.size(col) == 4
+    end
+
+    test "appends Enum8 values using string names" do
+      col = Column.new({:enum8, [{"low", 1}, {"high", 2}]})
+      Column.append_bulk(col, ["low", "high", "low", "high"])
+      assert Column.size(col) == 4
+    end
+
+    test "appends Enum16 values using string names" do
+      col = Column.new({:enum16, [{"alpha", 100}, {"beta", 200}, {"gamma", 300}]})
+      Column.append_bulk(col, ["alpha", "beta", "gamma", "alpha"])
+      assert Column.size(col) == 4
+    end
+
+    test "appends multiple batches with different formats" do
+      col = Column.new({:enum8, [{"on", 1}, {"off", 0}]})
+
+      # First batch with integers
+      Column.append_bulk(col, [1, 0, 1])
+      assert Column.size(col) == 3
+
+      # Second batch with string names
+      Column.append_bulk(col, ["on", "off", "on"])
+      assert Column.size(col) == 6
+    end
+
+    test "raises on unknown enum name" do
+      col = Column.new({:enum8, [{"yes", 1}, {"no", 0}]})
+
+      assert_raise ArgumentError, ~r/Unknown enum name: maybe/, fn ->
+        Column.append_bulk(col, ["yes", "maybe"])
+      end
+    end
+  end
 end
