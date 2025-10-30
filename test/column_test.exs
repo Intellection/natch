@@ -200,6 +200,234 @@ defmodule Chex.ColumnTest do
     end
   end
 
+  describe "Bool column operations" do
+    test "can create Bool column" do
+      col = Column.new(:bool)
+      assert %Column{type: :bool, clickhouse_type: "Bool"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append true values" do
+      col = Column.new(:bool)
+      assert :ok = Column.append_bulk(col, [true])
+      assert Column.size(col) == 1
+    end
+
+    test "can append false values" do
+      col = Column.new(:bool)
+      assert :ok = Column.append_bulk(col, [false])
+      assert Column.size(col) == 1
+    end
+
+    test "can append mixed boolean values" do
+      col = Column.new(:bool)
+      assert :ok = Column.append_bulk(col, [true, false, true, false])
+      assert Column.size(col) == 4
+    end
+
+    test "raises on non-boolean values" do
+      col = Column.new(:bool)
+
+      assert_raise ArgumentError, ~r/All values must be booleans/, fn ->
+        Column.append_bulk(col, [1])
+      end
+    end
+  end
+
+  describe "Date column operations" do
+    test "can create Date column" do
+      col = Column.new(:date)
+      assert %Column{type: :date, clickhouse_type: "Date"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append Date struct" do
+      col = Column.new(:date)
+      date = ~D[2024-10-29]
+      assert :ok = Column.append_bulk(col, [date])
+      assert Column.size(col) == 1
+    end
+
+    test "can append days since epoch as integer" do
+      col = Column.new(:date)
+      days = 19_000
+      assert :ok = Column.append_bulk(col, [days])
+      assert Column.size(col) == 1
+    end
+
+    test "can append multiple dates" do
+      col = Column.new(:date)
+      assert :ok = Column.append_bulk(col, [~D[2024-01-01], ~D[2024-12-31]])
+      assert Column.size(col) == 2
+    end
+
+    test "can append epoch date (1970-01-01)" do
+      col = Column.new(:date)
+      assert :ok = Column.append_bulk(col, [~D[1970-01-01]])
+      assert Column.size(col) == 1
+    end
+  end
+
+  describe "Float32 column operations" do
+    test "can create Float32 column" do
+      col = Column.new(:float32)
+      assert %Column{type: :float32, clickhouse_type: "Float32"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append float values" do
+      col = Column.new(:float32)
+      assert :ok = Column.append_bulk(col, [3.14])
+      assert Column.size(col) == 1
+    end
+
+    test "can append integer values (auto-converted)" do
+      col = Column.new(:float32)
+      assert :ok = Column.append_bulk(col, [42])
+      assert Column.size(col) == 1
+    end
+
+    test "can append negative values" do
+      col = Column.new(:float32)
+      assert :ok = Column.append_bulk(col, [-123.45])
+      assert Column.size(col) == 1
+    end
+  end
+
+  describe "UInt32 column operations" do
+    test "can create UInt32 column" do
+      col = Column.new(:uint32)
+      assert %Column{type: :uint32, clickhouse_type: "UInt32"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append values in range" do
+      col = Column.new(:uint32)
+      assert :ok = Column.append_bulk(col, [0, 100, 4_294_967_295])
+      assert Column.size(col) == 3
+    end
+
+    test "raises on negative values" do
+      col = Column.new(:uint32)
+
+      assert_raise ArgumentError, ~r/All values must be non-negative integers/, fn ->
+        Column.append_bulk(col, [-1])
+      end
+    end
+
+    test "raises on out of range values" do
+      col = Column.new(:uint32)
+
+      assert_raise ArgumentError, ~r/All values must be non-negative integers/, fn ->
+        Column.append_bulk(col, [4_294_967_296])
+      end
+    end
+  end
+
+  describe "UInt16 column operations" do
+    test "can create UInt16 column" do
+      col = Column.new(:uint16)
+      assert %Column{type: :uint16, clickhouse_type: "UInt16"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append values in range" do
+      col = Column.new(:uint16)
+      assert :ok = Column.append_bulk(col, [0, 100, 65_535])
+      assert Column.size(col) == 3
+    end
+
+    test "raises on out of range values" do
+      col = Column.new(:uint16)
+
+      assert_raise ArgumentError, ~r/All values must be non-negative integers/, fn ->
+        Column.append_bulk(col, [65_536])
+      end
+    end
+  end
+
+  describe "Int32 column operations" do
+    test "can create Int32 column" do
+      col = Column.new(:int32)
+      assert %Column{type: :int32, clickhouse_type: "Int32"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append values in range" do
+      col = Column.new(:int32)
+      assert :ok = Column.append_bulk(col, [-2_147_483_648, 0, 2_147_483_647])
+      assert Column.size(col) == 3
+    end
+
+    test "raises on out of range positive values" do
+      col = Column.new(:int32)
+
+      assert_raise ArgumentError, ~r/All values must be integers/, fn ->
+        Column.append_bulk(col, [2_147_483_648])
+      end
+    end
+
+    test "raises on out of range negative values" do
+      col = Column.new(:int32)
+
+      assert_raise ArgumentError, ~r/All values must be integers/, fn ->
+        Column.append_bulk(col, [-2_147_483_649])
+      end
+    end
+  end
+
+  describe "Int16 column operations" do
+    test "can create Int16 column" do
+      col = Column.new(:int16)
+      assert %Column{type: :int16, clickhouse_type: "Int16"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append values in range" do
+      col = Column.new(:int16)
+      assert :ok = Column.append_bulk(col, [-32_768, 0, 32_767])
+      assert Column.size(col) == 3
+    end
+
+    test "raises on out of range values" do
+      col = Column.new(:int16)
+
+      assert_raise ArgumentError, ~r/All values must be integers/, fn ->
+        Column.append_bulk(col, [32_768])
+      end
+    end
+  end
+
+  describe "Int8 column operations" do
+    test "can create Int8 column" do
+      col = Column.new(:int8)
+      assert %Column{type: :int8, clickhouse_type: "Int8"} = col
+      assert is_reference(col.ref)
+    end
+
+    test "can append values in range" do
+      col = Column.new(:int8)
+      assert :ok = Column.append_bulk(col, [-128, 0, 127])
+      assert Column.size(col) == 3
+    end
+
+    test "raises on out of range positive values" do
+      col = Column.new(:int8)
+
+      assert_raise ArgumentError, ~r/All values must be integers/, fn ->
+        Column.append_bulk(col, [128])
+      end
+    end
+
+    test "raises on out of range negative values" do
+      col = Column.new(:int8)
+
+      assert_raise ArgumentError, ~r/All values must be integers/, fn ->
+        Column.append_bulk(col, [-129])
+      end
+    end
+  end
+
   describe "Mixed operations" do
     test "can work with multiple columns simultaneously" do
       col1 = Column.new(:uint64)

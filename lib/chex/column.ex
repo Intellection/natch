@@ -20,11 +20,28 @@ defmodule Chex.Column do
 
   ## Supported Types
 
+  **Integers:**
   - `:uint64` - UInt64
+  - `:uint32` - UInt32
+  - `:uint16` - UInt16
   - `:int64` - Int64
-  - `:string` - String
+  - `:int32` - Int32
+  - `:int16` - Int16
+  - `:int8` - Int8
+
+  **Floats:**
   - `:float64` - Float64
-  - `:datetime` - DateTime
+  - `:float32` - Float32
+
+  **Strings:**
+  - `:string` - String
+
+  **Dates/Times:**
+  - `:datetime` - DateTime (Unix timestamp in seconds)
+  - `:date` - Date (days since epoch)
+
+  **Boolean:**
+  - `:bool` - Bool (stored as UInt8)
 
   ## Examples
 
@@ -116,6 +133,95 @@ defmodule Chex.Column do
     Native.column_datetime_append_bulk(ref, timestamps)
   end
 
+  def append_bulk(%__MODULE__{type: :date, ref: ref}, values) when is_list(values) do
+    # Convert all to days since epoch
+    days =
+      Enum.map(values, fn
+        %Date{} = date ->
+          Date.diff(date, ~D[1970-01-01])
+
+        days when is_integer(days) ->
+          days
+
+        other ->
+          raise ArgumentError, "Invalid date value: #{inspect(other)}"
+      end)
+
+    Native.column_date_append_bulk(ref, days)
+  end
+
+  def append_bulk(%__MODULE__{type: :bool, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &is_boolean/1) do
+      raise ArgumentError, "All values must be booleans for Bool column"
+    end
+
+    # Convert booleans to 0/1
+    int_values =
+      Enum.map(values, fn
+        true -> 1
+        false -> 0
+      end)
+
+    Native.column_uint8_append_bulk(ref, int_values)
+  end
+
+  def append_bulk(%__MODULE__{type: :uint32, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &(is_integer(&1) and &1 >= 0 and &1 <= 4_294_967_295)) do
+      raise ArgumentError,
+            "All values must be non-negative integers 0..4294967295 for UInt32 column"
+    end
+
+    Native.column_uint32_append_bulk(ref, values)
+  end
+
+  def append_bulk(%__MODULE__{type: :uint16, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &(is_integer(&1) and &1 >= 0 and &1 <= 65_535)) do
+      raise ArgumentError, "All values must be non-negative integers 0..65535 for UInt16 column"
+    end
+
+    Native.column_uint16_append_bulk(ref, values)
+  end
+
+  def append_bulk(%__MODULE__{type: :int32, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &(is_integer(&1) and &1 >= -2_147_483_648 and &1 <= 2_147_483_647)) do
+      raise ArgumentError,
+            "All values must be integers -2147483648..2147483647 for Int32 column"
+    end
+
+    Native.column_int32_append_bulk(ref, values)
+  end
+
+  def append_bulk(%__MODULE__{type: :int16, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &(is_integer(&1) and &1 >= -32_768 and &1 <= 32_767)) do
+      raise ArgumentError, "All values must be integers -32768..32767 for Int16 column"
+    end
+
+    Native.column_int16_append_bulk(ref, values)
+  end
+
+  def append_bulk(%__MODULE__{type: :int8, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &(is_integer(&1) and &1 >= -128 and &1 <= 127)) do
+      raise ArgumentError, "All values must be integers -128..127 for Int8 column"
+    end
+
+    Native.column_int8_append_bulk(ref, values)
+  end
+
+  def append_bulk(%__MODULE__{type: :float32, ref: ref}, values) when is_list(values) do
+    unless Enum.all?(values, &(is_float(&1) or is_integer(&1))) do
+      raise ArgumentError, "All values must be numbers for Float32 column"
+    end
+
+    # Convert integers to floats
+    float_values =
+      Enum.map(values, fn
+        val when is_float(val) -> val
+        val when is_integer(val) -> val * 1.0
+      end)
+
+    Native.column_float32_append_bulk(ref, float_values)
+  end
+
   def append_bulk(%__MODULE__{type: type}, values) when is_list(values) do
     raise ArgumentError,
           "Invalid values #{inspect(values)} for column type #{type}"
@@ -144,10 +250,18 @@ defmodule Chex.Column do
   # Private functions
 
   defp elixir_type_to_clickhouse(:uint64), do: "UInt64"
+  defp elixir_type_to_clickhouse(:uint32), do: "UInt32"
+  defp elixir_type_to_clickhouse(:uint16), do: "UInt16"
   defp elixir_type_to_clickhouse(:int64), do: "Int64"
-  defp elixir_type_to_clickhouse(:string), do: "String"
+  defp elixir_type_to_clickhouse(:int32), do: "Int32"
+  defp elixir_type_to_clickhouse(:int16), do: "Int16"
+  defp elixir_type_to_clickhouse(:int8), do: "Int8"
   defp elixir_type_to_clickhouse(:float64), do: "Float64"
+  defp elixir_type_to_clickhouse(:float32), do: "Float32"
+  defp elixir_type_to_clickhouse(:string), do: "String"
   defp elixir_type_to_clickhouse(:datetime), do: "DateTime"
+  defp elixir_type_to_clickhouse(:date), do: "Date"
+  defp elixir_type_to_clickhouse(:bool), do: "Bool"
 
   defp elixir_type_to_clickhouse(type) do
     raise ArgumentError, "Unsupported column type: #{inspect(type)}"

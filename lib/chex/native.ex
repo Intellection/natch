@@ -40,6 +40,16 @@ defmodule Chex.Native do
   def column_float64_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
   def column_datetime_append_bulk(_col, _timestamps), do: :erlang.nif_error(:nif_not_loaded)
 
+  # Phase 5C - Additional Type Support
+  def column_date_append_bulk(_col, _days), do: :erlang.nif_error(:nif_not_loaded)
+  def column_uint8_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+  def column_uint32_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+  def column_uint16_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+  def column_int32_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+  def column_int16_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+  def column_int8_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+  def column_float32_append_bulk(_col, _values), do: :erlang.nif_error(:nif_not_loaded)
+
   # Phase 3 - Block NIFs
   def block_create(), do: :erlang.nif_error(:nif_not_loaded)
   def block_append_column(_block, _name, _column), do: :erlang.nif_error(:nif_not_loaded)

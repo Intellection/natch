@@ -352,4 +352,203 @@ defmodule Chex.QueryTest do
       assert row2.created_at == DateTime.to_unix(~U[2024-10-29 11:00:00Z])
     end
   end
+
+  describe "New column types integration" do
+    test "can insert and query Bool values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        is_active Bool
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, is_active: :bool]
+      columns = %{id: [1, 2, 3], is_active: [true, false, true]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 3
+      assert [%{id: 1, is_active: 1}, %{id: 2, is_active: 0}, %{id: 3, is_active: 1}] = result
+    end
+
+    test "can insert and query Date values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        event_date Date
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, event_date: :date]
+      columns = %{id: [1, 2], event_date: [~D[2024-01-15], ~D[2024-12-31]]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 2
+
+      # Date is returned as days since epoch (uint16)
+      assert result |> Enum.at(0) |> Map.get(:event_date) ==
+               Date.diff(~D[2024-01-15], ~D[1970-01-01])
+
+      assert result |> Enum.at(1) |> Map.get(:event_date) ==
+               Date.diff(~D[2024-12-31], ~D[1970-01-01])
+    end
+
+    test "can insert and query Float32 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        price Float32
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, price: :float32]
+      columns = %{id: [1, 2], price: [19.99, -5.5]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 2
+      assert_in_delta Enum.at(result, 0).price, 19.99, 0.01
+      assert_in_delta Enum.at(result, 1).price, -5.5, 0.01
+    end
+
+    test "can insert and query UInt32 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        count UInt32
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, count: :uint32]
+      columns = %{id: [1, 2, 3], count: [0, 1000, 4_294_967_295]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert [%{count: 0}, %{count: 1000}, %{count: 4_294_967_295}] = result
+    end
+
+    test "can insert and query UInt16 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        port UInt16
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, port: :uint16]
+      columns = %{id: [1, 2, 3], port: [0, 8080, 65_535]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert [%{port: 0}, %{port: 8080}, %{port: 65_535}] = result
+    end
+
+    test "can insert and query Int32 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        temperature Int32
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, temperature: :int32]
+      columns = %{id: [1, 2, 3], temperature: [-2_147_483_648, 0, 2_147_483_647]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+
+      assert [%{temperature: -2_147_483_648}, %{temperature: 0}, %{temperature: 2_147_483_647}] =
+               result
+    end
+
+    test "can insert and query Int16 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        offset Int16
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, offset: :int16]
+      columns = %{id: [1, 2, 3], offset: [-32_768, 0, 32_767]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert [%{offset: -32_768}, %{offset: 0}, %{offset: 32_767}] = result
+    end
+
+    test "can insert and query Int8 values", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        delta Int8
+      ) ENGINE = Memory
+      """)
+
+      schema = [id: :uint64, delta: :int8]
+      columns = %{id: [1, 2, 3], delta: [-128, 0, 127]}
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert [%{delta: -128}, %{delta: 0}, %{delta: 127}] = result
+    end
+
+    test "can insert and query mixed new types", %{conn: conn, table: table} do
+      Connection.execute(conn, """
+      CREATE TABLE #{table} (
+        id UInt64,
+        is_enabled Bool,
+        launch_date Date,
+        price Float32,
+        count UInt32,
+        port UInt16,
+        temp Int32,
+        offset Int16,
+        delta Int8
+      ) ENGINE = Memory
+      """)
+
+      schema = [
+        id: :uint64,
+        is_enabled: :bool,
+        launch_date: :date,
+        price: :float32,
+        count: :uint32,
+        port: :uint16,
+        temp: :int32,
+        offset: :int16,
+        delta: :int8
+      ]
+
+      columns = %{
+        id: [1, 2],
+        is_enabled: [true, false],
+        launch_date: [~D[2024-01-01], ~D[2024-12-31]],
+        price: [99.99, 19.99],
+        count: [1000, 2000],
+        port: [8080, 3000],
+        temp: [20, -5],
+        offset: [100, -50],
+        delta: [10, -10]
+      }
+
+      assert :ok = Chex.insert(conn, table, columns, schema)
+
+      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert length(result) == 2
+
+      # Verify first row
+      row1 = Enum.at(result, 0)
+      assert row1.id == 1
+      assert row1.is_enabled == 1
+      assert row1.launch_date == Date.diff(~D[2024-01-01], ~D[1970-01-01])
+      assert_in_delta row1.price, 99.99, 0.01
+      assert row1.count == 1000
+      assert row1.port == 8080
+      assert row1.temp == 20
+      assert row1.offset == 100
+      assert row1.delta == 10
+    end
+  end
 end

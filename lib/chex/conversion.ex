@@ -208,14 +208,88 @@ defmodule Chex.Conversion do
     end
   end
 
+  defp validate_values_for_type(values, :bool) do
+    case Enum.find(values, fn val -> not is_boolean(val) end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :date) do
+    case Enum.find(values, fn
+           %Date{} -> false
+           val when is_integer(val) -> false
+           _ -> true
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :float32) do
+    case Enum.find(values, fn val -> not (is_float(val) or is_integer(val)) end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :uint32) do
+    case Enum.find(values, fn val ->
+           not (is_integer(val) and val >= 0 and val <= 4_294_967_295)
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :uint16) do
+    case Enum.find(values, fn val -> not (is_integer(val) and val >= 0 and val <= 65_535) end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :int32) do
+    case Enum.find(values, fn val ->
+           not (is_integer(val) and val >= -2_147_483_648 and val <= 2_147_483_647)
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :int16) do
+    case Enum.find(values, fn val ->
+           not (is_integer(val) and val >= -32_768 and val <= 32_767)
+         end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
+  defp validate_values_for_type(values, :int8) do
+    case Enum.find(values, fn val -> not (is_integer(val) and val >= -128 and val <= 127) end) do
+      nil -> :ok
+      invalid -> {:error, invalid}
+    end
+  end
+
   defp validate_values_for_type(_values, type) do
     {:error, "Unsupported type: #{inspect(type)}"}
   end
 
   defp type_to_name(:uint64), do: "UInt64"
+  defp type_to_name(:uint32), do: "UInt32"
+  defp type_to_name(:uint16), do: "UInt16"
   defp type_to_name(:int64), do: "Int64"
+  defp type_to_name(:int32), do: "Int32"
+  defp type_to_name(:int16), do: "Int16"
+  defp type_to_name(:int8), do: "Int8"
   defp type_to_name(:string), do: "String"
   defp type_to_name(:float64), do: "Float64"
+  defp type_to_name(:float32), do: "Float32"
   defp type_to_name(:datetime), do: "DateTime"
+  defp type_to_name(:date), do: "Date"
+  defp type_to_name(:bool), do: "Bool"
   defp type_to_name(type), do: inspect(type)
 end

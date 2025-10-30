@@ -40,13 +40,41 @@ ERL_NIF_TERM block_to_maps_impl(ErlNifEnv *env, std::shared_ptr<Block> block) {
       for (size_t i = 0; i < row_count; i++) {
         column_values.push_back(enif_make_uint64(env, uint64_col->At(i)));
       }
+    } else if (auto uint32_col = col->As<ColumnUInt32>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_uint64(env, uint32_col->At(i)));
+      }
+    } else if (auto uint16_col = col->As<ColumnUInt16>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_uint64(env, uint16_col->At(i)));
+      }
+    } else if (auto uint8_col = col->As<ColumnUInt8>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_uint64(env, uint8_col->At(i)));
+      }
     } else if (auto int64_col = col->As<ColumnInt64>()) {
       for (size_t i = 0; i < row_count; i++) {
         column_values.push_back(enif_make_int64(env, int64_col->At(i)));
       }
+    } else if (auto int32_col = col->As<ColumnInt32>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_int64(env, int32_col->At(i)));
+      }
+    } else if (auto int16_col = col->As<ColumnInt16>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_int64(env, int16_col->At(i)));
+      }
+    } else if (auto int8_col = col->As<ColumnInt8>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_int64(env, int8_col->At(i)));
+      }
     } else if (auto float64_col = col->As<ColumnFloat64>()) {
       for (size_t i = 0; i < row_count; i++) {
         column_values.push_back(enif_make_double(env, float64_col->At(i)));
+      }
+    } else if (auto float32_col = col->As<ColumnFloat32>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_double(env, float32_col->At(i)));
       }
     } else if (auto string_col = col->As<ColumnString>()) {
       for (size_t i = 0; i < row_count; i++) {
@@ -60,6 +88,10 @@ ERL_NIF_TERM block_to_maps_impl(ErlNifEnv *env, std::shared_ptr<Block> block) {
     } else if (auto datetime_col = col->As<ColumnDateTime>()) {
       for (size_t i = 0; i < row_count; i++) {
         column_values.push_back(enif_make_uint64(env, datetime_col->At(i)));
+      }
+    } else if (auto date_col = col->As<ColumnDate>()) {
+      for (size_t i = 0; i < row_count; i++) {
+        column_values.push_back(enif_make_uint64(env, date_col->RawAt(i)));
       }
     }
 

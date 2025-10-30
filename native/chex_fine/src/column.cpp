@@ -215,3 +215,144 @@ fine::Atom column_datetime_append_bulk(
   }
 }
 FINE_NIF(column_datetime_append_bulk, 0);
+
+//
+// PHASE 5C - ADDITIONAL TYPE SUPPORT
+// Bulk append operations for Bool, Date, Float32, and additional integer types
+//
+
+// Bulk append Date values (days since epoch as uint16)
+fine::Atom column_date_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<uint64_t> days) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnDate>(col_res->ptr);
+    for (const auto& day : days) {
+      typed->AppendRaw(static_cast<uint16_t>(day));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Date bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_date_append_bulk, 0);
+
+// Bulk append UInt8 values (used for Bool)
+fine::Atom column_uint8_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<uint64_t> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnUInt8>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<uint8_t>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("UInt8 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_uint8_append_bulk, 0);
+
+// Bulk append UInt32 values
+fine::Atom column_uint32_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<uint64_t> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnUInt32>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<uint32_t>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("UInt32 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_uint32_append_bulk, 0);
+
+// Bulk append UInt16 values
+fine::Atom column_uint16_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<uint64_t> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnUInt16>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<uint16_t>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("UInt16 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_uint16_append_bulk, 0);
+
+// Bulk append Int32 values
+fine::Atom column_int32_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<int64_t> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnInt32>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<int32_t>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Int32 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_int32_append_bulk, 0);
+
+// Bulk append Int16 values
+fine::Atom column_int16_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<int64_t> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnInt16>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<int16_t>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Int16 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_int16_append_bulk, 0);
+
+// Bulk append Int8 values
+fine::Atom column_int8_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<int64_t> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnInt8>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<int8_t>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Int8 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_int8_append_bulk, 0);
+
+// Bulk append Float32 values
+fine::Atom column_float32_append_bulk(
+    ErlNifEnv *env,
+    fine::ResourcePtr<ColumnResource> col_res,
+    std::vector<double> values) {
+  try {
+    auto typed = std::static_pointer_cast<ColumnFloat32>(col_res->ptr);
+    for (const auto& value : values) {
+      typed->Append(static_cast<float>(value));
+    }
+    return fine::Atom("ok");
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("Float32 bulk append failed: ") + e.what());
+  }
+}
+FINE_NIF(column_float32_append_bulk, 0);
