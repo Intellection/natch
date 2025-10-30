@@ -658,8 +658,8 @@ defmodule Chex.Conversion do
     end
   end
 
-  def validate_column_lengths(columns, schema) do
-    # Ensure all columns have same length
+  def columns_to_rows(columns, schema) do
+    # Convert columnar back to row format (useful for testing)
   end
 end
 
@@ -668,6 +668,8 @@ rows = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
 columns = Chex.Conversion.rows_to_columns(rows, schema)
 Chex.insert(conn, "users", columns, schema)
 ```
+
+**Type Safety:** Validation happens automatically in `Chex.Column.append_bulk/2` and FINE NIFs during block building. No explicit validation calls needed - type errors are caught with helpful error messages, and FINE ensures the VM never crashes.
 
 **Note:** Streaming insert support was removed. For large datasets, use `Chex.insert/4` directly as clickhouse-cpp handles wire-level chunking (64KB compression blocks) automatically. Users can chunk data in their own code before calling `Chex.insert/4` if needed for memory management.
 

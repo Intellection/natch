@@ -28,14 +28,14 @@ defmodule Chex.Block do
   If you have row-oriented data, use `Chex.Conversion.rows_to_columns/2`.
   """
 
-  alias Chex.{Column, Conversion, Native}
+  alias Chex.{Column, Native}
 
   @doc """
   Builds a Block from columnar data and schema.
 
-  This is a pure function that validates the input data and constructs a
-  Block resource. The block can then be inserted via `Chex.insert/4` or
-  used for testing.
+  This is a pure function that constructs a Block resource from columnar data.
+  Type validation happens in `Chex.Column.append_bulk/2` as each column is built.
+  The block can then be inserted via `Chex.insert/4` or used for testing.
 
   ## Parameters
 
@@ -60,17 +60,6 @@ defmodule Chex.Block do
   """
   @spec build_block(map(), keyword()) :: reference()
   def build_block(columns, schema) when is_map(columns) and is_list(schema) do
-    # Validate columns
-    case Conversion.validate_column_lengths(columns, schema) do
-      :ok -> :ok
-      {:error, reason} -> raise ArgumentError, reason
-    end
-
-    case Conversion.validate_column_types(columns, schema) do
-      :ok -> :ok
-      {:error, reason} -> raise ArgumentError, reason
-    end
-
     # Create empty block
     block = Native.block_create()
 

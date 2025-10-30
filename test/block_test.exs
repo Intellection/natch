@@ -238,33 +238,157 @@ defmodule Chex.BlockTest do
     end
   end
 
-  describe "Column validation" do
-    test "validates column lengths match" do
-      schema = [id: :uint64, name: :string]
-      columns = %{id: [1, 2], name: ["Alice"]}
+  describe "Type and length validation (integration tests)" do
+    # These tests verify that Column.append_bulk and FINE NIFs catch all invalid data
+    # that was previously caught by the deprecated Conversion validation functions
 
-      # Mismatched lengths
-      assert_raise ArgumentError, ~r/Column length mismatch/, fn ->
+    test "catches mismatched column lengths (FINE validates at block append)" do
+      schema = [id: :uint64, name: :string]
+      columns = %{id: [1, 2, 3], name: ["Alice", "Bob"]}
+
+      assert_raise RuntimeError, ~r/all columns in block must have same count of rows/, fn ->
         Block.build_block(columns, schema)
       end
     end
 
-    test "validates column types" do
+    test "catches missing column" do
       schema = [id: :uint64, name: :string]
-      columns = %{id: ["not", "numbers"], name: ["Alice", "Bob"]}
+      columns = %{id: [1, 2, 3]}
 
-      # Wrong types
+      assert_raise ArgumentError, ~r/Missing column :name/, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "catches non-list column" do
+      schema = [id: :uint64, name: :string]
+      columns = %{id: [1, 2, 3], name: "not a list"}
+
+      assert_raise ArgumentError, ~r/Column :name must be a list/, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "catches negative uint64 values (Column.append_bulk validates)" do
+      schema = [id: :uint64]
+      columns = %{id: [1, -1, 3]}
+
+      assert_raise ArgumentError, ~r/non-negative integers/, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "catches non-integer uint64 values (FINE validates at NIF boundary)" do
+      schema = [id: :uint64]
+      columns = %{id: [1, "string", 3]}
+
       assert_raise ArgumentError, fn ->
         Block.build_block(columns, schema)
       end
     end
 
-    test "works with string keys" do
-      schema = [id: :uint64, name: :string]
-      columns = %{"id" => [1], "name" => ["Alice"]}
+    test "catches non-integer int64 values (Column.append_bulk validates)" do
+      schema = [value: :int64]
+      columns = %{value: [1, 2.5, 3]}
+
+      assert_raise ArgumentError, ~r/must be integers/, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "catches non-string values (FINE validates at NIF boundary)" do
+      schema = [name: :string]
+      columns = %{name: ["Alice", 123, "Bob"]}
+
+      assert_raise ArgumentError, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "catches non-numeric float64 values (Column.append_bulk validates)" do
+      schema = [amount: :float64]
+      columns = %{amount: [1.5, "not a number", 3.14]}
+
+      assert_raise ArgumentError, ~r/must be numbers/, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "catches invalid datetime values (Column.append_bulk validates)" do
+      schema = [created_at: :datetime]
+      columns = %{created_at: [~U[2024-10-29 10:00:00Z], "not a datetime"]}
+
+      assert_raise ArgumentError, fn ->
+        Block.build_block(columns, schema)
+      end
+    end
+
+    test "accepts valid uint64 values including boundary values" do
+      schema = [id: :uint64]
+      columns = %{id: [0, 1, 100, 18_446_744_073_709_551_615]}
 
       block = Block.build_block(columns, schema)
-      assert Native.block_row_count(block) == 1
+      assert Native.block_row_count(block) == 4
+    end
+
+    test "accepts valid int64 values including boundary values" do
+      schema = [value: :int64]
+      columns = %{value: [-9_223_372_036_854_775_808, 0, 9_223_372_036_854_775_807]}
+
+      block = Block.build_block(columns, schema)
+      assert Native.block_row_count(block) == 3
+    end
+
+    test "accepts valid string values including unicode and empty strings" do
+      schema = [name: :string]
+      columns = %{name: ["Alice", "Bob", "", "Hello 世界 🌍"]}
+
+      block = Block.build_block(columns, schema)
+      assert Native.block_row_count(block) == 4
+    end
+
+    test "accepts valid float64 values including integers" do
+      schema = [amount: :float64]
+      columns = %{amount: [1.5, 2.0, -3.14, 0.0, 42]}
+
+      block = Block.build_block(columns, schema)
+      assert Native.block_row_count(block) == 5
+    end
+
+    test "accepts valid datetime values as DateTime structs and integers" do
+      schema = [created_at: :datetime]
+
+      columns = %{
+        created_at: [
+          ~U[2024-10-29 10:00:00Z],
+          1_730_220_600,
+          ~U[1970-01-01 00:00:00Z]
+        ]
+      }
+
+      block = Block.build_block(columns, schema)
+      assert Native.block_row_count(block) == 3
+    end
+
+    test "works with string keys in columns map" do
+      schema = [id: :uint64, name: :string]
+      columns = %{"id" => [1, 2], "name" => ["Alice", "Bob"]}
+
+      block = Block.build_block(columns, schema)
+      assert Native.block_row_count(block) == 2
+    end
+
+    test "validates multiple columns with different types" do
+      schema = [id: :uint64, name: :string, amount: :float64]
+
+      columns = %{
+        id: [1, 2],
+        name: ["Alice", "Bob"],
+        amount: [100.5, 200.75]
+      }
+
+      block = Block.build_block(columns, schema)
+      assert Native.block_row_count(block) == 2
     end
   end
 
