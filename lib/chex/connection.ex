@@ -109,23 +109,6 @@ defmodule Chex.Connection do
     GenServer.call(conn, {:select_cols, query}, :infinity)
   end
 
-  @doc """
-  Executes a SELECT query and returns results as a list of maps (deprecated).
-
-  This function is deprecated. Use `select_rows/2` for row-major format or
-  `select_cols/2` for columnar format.
-
-  ## Examples
-
-      {:ok, rows} = Chex.Connection.select(conn, "SELECT id, name FROM users")
-      # => {:ok, [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]}
-
-  """
-  @spec select(GenServer.server(), String.t()) :: {:ok, [map()]} | {:error, term()}
-  def select(conn, query) do
-    select_rows(conn, query)
-  end
-
   # GenServer callbacks
 
   @impl true

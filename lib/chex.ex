@@ -140,7 +140,7 @@ defmodule Chex do
   """
   @spec query(conn(), String.t()) :: {:ok, [row()]} | {:error, term()}
   def query(conn, sql) do
-    Connection.select(conn, sql)
+    Connection.select_rows(conn, sql)
   end
 
   @doc """

@@ -37,7 +37,7 @@ defmodule Chex.QueryTest do
       """)
 
       # Query empty table
-      assert {:ok, []} = Connection.select(conn, "SELECT * FROM #{table}")
+      assert {:ok, []} = Connection.select_rows(conn, "SELECT * FROM #{table}")
     end
 
     test "can select single row", %{conn: conn, table: table} do
@@ -54,7 +54,7 @@ defmodule Chex.QueryTest do
       Chex.insert(conn, "#{table}", columns, schema)
 
       # Query
-      assert {:ok, result} = Connection.select(conn, "SELECT id, name FROM #{table}")
+      assert {:ok, result} = Connection.select_rows(conn, "SELECT id, name FROM #{table}")
       assert length(result) == 1
       assert [%{id: 1, name: "Alice"}] = result
     end
@@ -78,7 +78,7 @@ defmodule Chex.QueryTest do
       Chex.insert(conn, "#{table}", columns, schema)
 
       # Query
-      assert {:ok, result} = Connection.select(conn, "SELECT id, name FROM #{table}")
+      assert {:ok, result} = Connection.select_rows(conn, "SELECT id, name FROM #{table}")
       assert length(result) == 3
 
       assert Enum.any?(result, fn r -> r.id == 1 && r.name == "Alice" end)
@@ -106,7 +106,7 @@ defmodule Chex.QueryTest do
 
       # Query with WHERE
       assert {:ok, result} =
-               Connection.select(conn, "SELECT * FROM #{table} WHERE id = 2")
+               Connection.select_rows(conn, "SELECT * FROM #{table} WHERE id = 2")
 
       assert length(result) == 1
       assert [%{id: 2, name: "Bob"}] = result
@@ -145,7 +145,7 @@ defmodule Chex.QueryTest do
 
       # Query
       assert {:ok, [result]} =
-               Connection.select(
+               Connection.select_rows(
                  conn,
                  "SELECT id, value, name, amount, created_at FROM #{table}"
                )
@@ -180,7 +180,7 @@ defmodule Chex.QueryTest do
 
       # Query with ORDER BY
       assert {:ok, result} =
-               Connection.select(conn, "SELECT * FROM #{table} ORDER BY id ASC")
+               Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id ASC")
 
       assert length(result) == 3
       assert Enum.at(result, 0).id == 1
@@ -207,7 +207,7 @@ defmodule Chex.QueryTest do
       Chex.insert(conn, "#{table}", columns, schema)
 
       # Query with LIMIT
-      assert {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} LIMIT 2")
+      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} LIMIT 2")
       assert length(result) == 2
     end
 
@@ -226,7 +226,7 @@ defmodule Chex.QueryTest do
       Chex.insert(conn, "#{table}", columns, schema)
 
       # Query specific columns
-      assert {:ok, [result]} = Connection.select(conn, "SELECT name FROM #{table}")
+      assert {:ok, [result]} = Connection.select_rows(conn, "SELECT name FROM #{table}")
       assert result.name == "Alice"
       refute Map.has_key?(result, :id)
       refute Map.has_key?(result, :amount)
@@ -252,13 +252,13 @@ defmodule Chex.QueryTest do
 
       # Query with COUNT
       assert {:ok, [result]} =
-               Connection.select(conn, "SELECT count() as cnt FROM #{table}")
+               Connection.select_rows(conn, "SELECT count() as cnt FROM #{table}")
 
       assert result.cnt == 3
 
       # Query with SUM
       assert {:ok, [result]} =
-               Connection.select(conn, "SELECT sum(amount) as total FROM #{table}")
+               Connection.select_rows(conn, "SELECT sum(amount) as total FROM #{table}")
 
       assert_in_delta result.total, 600.0, 0.01
     end
@@ -282,7 +282,7 @@ defmodule Chex.QueryTest do
       Chex.insert(conn, "#{table}", columns, schema)
 
       # Query all
-      assert {:ok, result} = Connection.select(conn, "SELECT * FROM #{table}")
+      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table}")
       assert length(result) == 10_000
 
       # Verify a few rows
@@ -292,7 +292,7 @@ defmodule Chex.QueryTest do
     end
 
     test "returns error for invalid query", %{conn: conn, table: _table} do
-      result = Connection.select(conn, "SELECT * FROM nonexistent_table")
+      result = Connection.select_rows(conn, "SELECT * FROM nonexistent_table")
       assert {:error, _reason} = result
     end
   end
@@ -331,7 +331,7 @@ defmodule Chex.QueryTest do
 
       # Query back
       assert {:ok, select_rows} =
-               Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+               Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
 
       assert length(select_rows) == 2
 
@@ -366,7 +366,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2, 3], is_active: [true, false, true]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
       assert [%{id: 1, is_active: 1}, %{id: 2, is_active: 0}, %{id: 3, is_active: 1}] = result
     end
@@ -383,7 +383,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2], event_date: [~D[2024-01-15], ~D[2024-12-31]]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       # Date is returned as days since epoch (uint16)
@@ -406,7 +406,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2], price: [19.99, -5.5]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
       assert_in_delta Enum.at(result, 0).price, 19.99, 0.01
       assert_in_delta Enum.at(result, 1).price, -5.5, 0.01
@@ -424,7 +424,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2, 3], count: [0, 1000, 4_294_967_295]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{count: 0}, %{count: 1000}, %{count: 4_294_967_295}] = result
     end
 
@@ -440,7 +440,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2, 3], port: [0, 8080, 65_535]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{port: 0}, %{port: 8080}, %{port: 65_535}] = result
     end
 
@@ -456,7 +456,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2, 3], temperature: [-2_147_483_648, 0, 2_147_483_647]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
 
       assert [%{temperature: -2_147_483_648}, %{temperature: 0}, %{temperature: 2_147_483_647}] =
                result
@@ -474,7 +474,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2, 3], offset: [-32_768, 0, 32_767]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{offset: -32_768}, %{offset: 0}, %{offset: 32_767}] = result
     end
 
@@ -490,7 +490,7 @@ defmodule Chex.QueryTest do
       columns = %{id: [1, 2, 3], delta: [-128, 0, 127]}
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{delta: -128}, %{delta: 0}, %{delta: 127}] = result
     end
 
@@ -535,7 +535,7 @@ defmodule Chex.QueryTest do
 
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       # Verify first row
@@ -572,7 +572,7 @@ defmodule Chex.QueryTest do
 
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       # Verify UUIDs are returned as strings
@@ -602,7 +602,7 @@ defmodule Chex.QueryTest do
 
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       # Verify timestamps are returned as microsecond integers
@@ -632,7 +632,7 @@ defmodule Chex.QueryTest do
 
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       # Verify decimals are returned as scaled int64 values
@@ -661,7 +661,7 @@ defmodule Chex.QueryTest do
 
       assert :ok = Chex.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 4
 
       # Verify nullable values are returned correctly

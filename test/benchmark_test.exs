@@ -73,7 +73,7 @@ defmodule Chex.BenchmarkTest do
       IO.puts("\n  Bulk inserted 100k rows in #{Float.round(time_ms, 2)}ms")
 
       # Verify count
-      {:ok, result} = Connection.select(conn, "SELECT count() as cnt FROM #{table}")
+      {:ok, result} = Connection.select_rows(conn, "SELECT count() as cnt FROM #{table}")
       assert [%{cnt: 100_000}] = result
     end
 
@@ -97,7 +97,7 @@ defmodule Chex.BenchmarkTest do
       # Benchmark query
       {time_us, {:ok, rows}} =
         :timer.tc(fn ->
-          Connection.select(conn, "SELECT * FROM #{table}")
+          Connection.select_rows(conn, "SELECT * FROM #{table}")
         end)
 
       time_ms = time_us / 1000

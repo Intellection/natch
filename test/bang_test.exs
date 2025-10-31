@@ -105,7 +105,7 @@ defmodule Chex.BangTest do
       assert :ok = result
 
       # Verify data was inserted
-      {:ok, rows} = Connection.select(conn, "SELECT count() as cnt FROM #{table}")
+      {:ok, rows} = Connection.select_rows(conn, "SELECT count() as cnt FROM #{table}")
       assert [%{cnt: 2}] = rows
     end
 

@@ -85,7 +85,7 @@ schema = [
 :ok = Chex.insert(conn, "events", columns, schema)
 
 # Query data
-{:ok, results} = Chex.Connection.select(conn, "SELECT * FROM events WHERE user_id = 100")
+{:ok, results} = Chex.Connection.select_rows(conn, "SELECT * FROM events WHERE user_id = 100")
 IO.inspect(results)
 # => [
 #      %{id: 1, user_id: 100, event_type: "click", ...},
@@ -348,8 +348,6 @@ Returns results as a map of column lists, ideal for large result sets and data a
 %{user_id: user_ids, value: values} = data
 total = Enum.sum(values)
 ```
-
-**Note:** The deprecated `select/2` function still works and delegates to `select_rows/2` for backward compatibility.
 
 ### Inserting Data
 
