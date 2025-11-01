@@ -25,19 +25,20 @@ defmodule Chex.ConnectionErrorTest do
       # Invalid SQL syntax should return server error with code/name
       result = Chex.Connection.execute(conn, "INVALID SQL SYNTAX")
 
-      assert {:error, error_message} = result
-      # The error should contain structured JSON information
-      assert is_binary(error_message)
+      assert {:error, error} = result
+      # The error should be a structured map
+      assert is_map(error)
+      assert error.type == "server"
+      assert error.message =~ "Syntax error"
 
-      # Decode and verify the structure
-      {:ok, error_json} = Jason.decode(error_message)
-      assert error_json["type"] == "server"
+      # Check details map contains all fields
+      assert error.details["type"] == "server"
       # SYNTAX_ERROR code
-      assert error_json["code"] == 62
-      assert error_json["name"] == "DB::Exception"
-      assert error_json["message"] =~ "Syntax error"
+      assert error.details["code"] == 62
+      assert error.details["name"] == "DB::Exception"
+      assert error.details["message"] =~ "Syntax error"
       # Stack trace should be present for server errors
-      assert is_binary(error_json["stack_trace"])
+      assert is_binary(error.details["stack_trace"])
     end
   end
 end
