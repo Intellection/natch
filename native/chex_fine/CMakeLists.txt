@@ -80,8 +80,15 @@ set_target_properties(chex_fine PROPERTIES
 )
 
 # Output to priv/ directory
+# Use MIX_APP_PATH if set (for precompilation), otherwise use project priv
+if(DEFINED ENV{MIX_APP_PATH})
+  set(PRIV_OUTPUT_DIR $ENV{MIX_APP_PATH}/priv)
+else()
+  set(PRIV_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/../../priv)
+endif()
+
 set_target_properties(chex_fine PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../../priv
+  LIBRARY_OUTPUT_DIRECTORY ${PRIV_OUTPUT_DIR}
 )
 
 # Apple-specific settings

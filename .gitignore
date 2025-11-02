@@ -34,6 +34,10 @@ chex-*.tar
 /bench/results*.html
 /bench/*.txt
 
+# Precompilation cache and checksums
+/cache/
+checksum*.exs
+
 # Agents settings, editors and tools
 /.elixir-ls
 /.claude/settings.local.json

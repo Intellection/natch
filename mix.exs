@@ -1,10 +1,12 @@
 defmodule Chex.MixProject do
   use Mix.Project
 
+  @version "0.2.0"
+
   def project do
     [
       app: :chex,
-      version: "0.2.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -14,7 +16,14 @@ defmodule Chex.MixProject do
       compilers: [:elixir_make] ++ Mix.compilers(),
       make_targets: ["all"],
       make_clean: ["clean"],
-      make_cwd: "native/chex_fine"
+      make_cwd: "native/chex_fine",
+      # Precompiler configuration
+      make_precompiler: {:nif, CCPrecompiler},
+      make_precompiler_url:
+        "https://github.com/Intellection/chex/releases/download/v#{@version}/@{artefact_filename}",
+      make_precompiler_nif_versions: [versions: ["2.15", "2.16", "2.17"]],
+      make_nif_filename: "chex_fine",
+      make_precompiler_priv_paths: ["chex_fine.*"]
     ]
   end
 
@@ -26,7 +35,7 @@ defmodule Chex.MixProject do
         "Changelog" => "https://github.com/Intellection/chex/blob/main/CHANGELOG.md"
       },
       files:
-        ~w(lib priv native .formatter.exs mix.exs README.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md)
+        ~w(lib priv native .formatter.exs mix.exs README.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md checksum-*.exs)
     ]
   end
 
@@ -50,6 +59,7 @@ defmodule Chex.MixProject do
     [
       {:fine, "~> 0.1.0"},
       {:elixir_make, "~> 0.6", runtime: false},
+      {:cc_precompiler, "~> 0.1.0", runtime: false},
       {:jason, "~> 1.4"},
       {:decimal, "~> 2.0"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},

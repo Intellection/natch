@@ -969,7 +969,7 @@ Added three configurable socket-level timeout options to prevent operations from
 
 **Remaining for Public Release:**
 - ⏳ Phase 6C: Parameterized queries
-- ⏳ Phase 6D: Prebuilt binaries (see research/GITHUB_RELEASE_PLAN.md)
+- ⏳ Phase 6D: Prebuilt binaries - 4 tested platforms + cross-compilation (see research/GITHUB_RELEASE_PLAN.md)
 - ⏳ Phase 6E: Documentation polish for public consumption
 - ⏳ Hex.pm publication
 
@@ -1929,11 +1929,13 @@ With MVP achieved (Phases 1-4 complete), all advanced types complete (Phase 5A-G
    - Integration with existing query API
 
 9. **Phase 6D: Prebuilt Binary Releases** (HIGH PRIORITY)
-   - GitHub Actions workflow for release artifacts
-   - Platform matrix: Linux (x86_64, ARM64) and macOS (x86_64, ARM64)
-   - NIF version matrix for OTP compatibility
-   - Automated artifact upload to GitHub Releases
-   - See research/GITHUB_RELEASE_PLAN.md for detailed implementation plan
+   - GitHub Actions workflow with 4 parallel jobs (testing + cross-compilation)
+   - **Tested platforms:** Linux x86_64, Linux ARM64, macOS x86_64, macOS ARM64
+   - **Cross-compiled:** Linux ARMv7, RISC-V 64, i686 (best effort, no tests)
+   - NIF version matrix: 2.15 (OTP 24), 2.16 (OTP 25), 2.17 (OTP 26-28)
+   - ~18-21 precompiled binaries per release
+   - Semi-automated workflow: CI builds → manual checksum → manual Hex publish
+   - See research/GITHUB_RELEASE_PLAN.md for complete implementation details
 
 10. **Phase 6E: Additional Production Features**
    - Comprehensive error handling refinement
