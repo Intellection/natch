@@ -155,13 +155,49 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: "1.18.4"
 
+      - name: Install Colima and Docker
+        run: brew install colima docker
+
+      - name: Start Colima
+        run: |
+          colima start --cpu 2 --memory 4
+          docker --version
+          docker ps
+
+      - name: Start ClickHouse
+        run: |
+          docker run -d \
+            --name clickhouse \
+            -p 9000:9000 \
+            -p 8123:8123 \
+            clickhouse/clickhouse-server:latest
+
+      - name: Wait for ClickHouse
+        run: |
+          echo "Waiting for ClickHouse to start..."
+          for i in {1..60}; do
+            if docker exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+              echo "ClickHouse is ready!"
+              break
+            fi
+            echo "Still waiting... ($i/60)"
+            sleep 2
+          done
+          docker exec clickhouse clickhouse-client --query "SELECT 1"
+
       - name: Install dependencies
         run: |
           brew install cmake openssl
           mix deps.get
 
-      - name: Compile (verify build works on macOS)
+      - name: Compile
         run: mix compile
+
+      - name: Run tests on x86_64 macOS
+        run: mix test --exclude integration
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 9000
 
       - name: Precompile NIFs
         run: |
@@ -194,13 +230,49 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: "1.18.4"
 
+      - name: Install Colima and Docker
+        run: brew install colima docker
+
+      - name: Start Colima
+        run: |
+          colima start --cpu 2 --memory 4
+          docker --version
+          docker ps
+
+      - name: Start ClickHouse
+        run: |
+          docker run -d \
+            --name clickhouse \
+            -p 9000:9000 \
+            -p 8123:8123 \
+            clickhouse/clickhouse-server:latest
+
+      - name: Wait for ClickHouse
+        run: |
+          echo "Waiting for ClickHouse to start..."
+          for i in {1..60}; do
+            if docker exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+              echo "ClickHouse is ready!"
+              break
+            fi
+            echo "Still waiting... ($i/60)"
+            sleep 2
+          done
+          docker exec clickhouse clickhouse-client --query "SELECT 1"
+
       - name: Install dependencies
         run: |
           brew install cmake openssl
           mix deps.get
 
-      - name: Compile (verify build works on macOS)
+      - name: Compile
         run: mix compile
+
+      - name: Run tests on ARM64 macOS
+        run: mix test --exclude integration
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 9000
 
       - name: Precompile NIFs
         run: |
