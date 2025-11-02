@@ -155,18 +155,18 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: "1.18.4"
 
-      - name: Install Colima and Docker
-        run: brew install colima docker
+      - name: Install Podman
+        run: brew install podman
 
-      - name: Start Colima
+      - name: Start Podman machine
         run: |
-          colima start --cpu 2 --memory 4
-          docker --version
-          docker ps
+          podman machine init
+          podman machine start
+          podman info
 
       - name: Start ClickHouse
         run: |
-          docker run -d \
+          podman run -d \
             --name clickhouse \
             -p 9000:9000 \
             -p 8123:8123 \
@@ -176,14 +176,14 @@ jobs:
         run: |
           echo "Waiting for ClickHouse to start..."
           for i in {1..60}; do
-            if docker exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+            if podman exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
               echo "ClickHouse is ready!"
               break
             fi
             echo "Still waiting... ($i/60)"
             sleep 2
           done
-          docker exec clickhouse clickhouse-client --query "SELECT 1"
+          podman exec clickhouse clickhouse-client --query "SELECT 1"
 
       - name: Install dependencies
         run: |
@@ -230,18 +230,18 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: "1.18.4"
 
-      - name: Install Colima and Docker
-        run: brew install colima docker
+      - name: Install Podman
+        run: brew install podman
 
-      - name: Start Colima
+      - name: Start Podman machine
         run: |
-          colima start --cpu 2 --memory 4
-          docker --version
-          docker ps
+          podman machine init
+          podman machine start
+          podman info
 
       - name: Start ClickHouse
         run: |
-          docker run -d \
+          podman run -d \
             --name clickhouse \
             -p 9000:9000 \
             -p 8123:8123 \
@@ -251,14 +251,14 @@ jobs:
         run: |
           echo "Waiting for ClickHouse to start..."
           for i in {1..60}; do
-            if docker exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+            if podman exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
               echo "ClickHouse is ready!"
               break
             fi
             echo "Still waiting... ($i/60)"
             sleep 2
           done
-          docker exec clickhouse clickhouse-client --query "SELECT 1"
+          podman exec clickhouse clickhouse-client --query "SELECT 1"
 
       - name: Install dependencies
         run: |
