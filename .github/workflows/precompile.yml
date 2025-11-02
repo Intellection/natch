@@ -163,10 +163,13 @@ jobs:
       - name: Start ClickHouse server
         run: |
           mkdir -p ./clickhouse_data
-          ./clickhouse server --daemon \
-            -- --path ./clickhouse_data \
+          ./clickhouse server \
+            --path ./clickhouse_data \
             --http_port 8123 \
-            --tcp_port 9000
+            --tcp_port 9000 \
+            > ./clickhouse_server.log 2>&1 &
+          echo $! > ./clickhouse_server.pid
+          echo "ClickHouse server started with PID $(cat ./clickhouse_server.pid)"
 
       - name: Wait for ClickHouse
         run: |
@@ -176,6 +179,11 @@ jobs:
               echo "ClickHouse is ready!"
               ./clickhouse client --query "SELECT version()"
               break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "ClickHouse failed to start. Logs:"
+              cat ./clickhouse_server.log || echo "No log file found"
+              exit 1
             fi
             echo "Still waiting... ($i/60)"
             sleep 2
@@ -232,10 +240,13 @@ jobs:
       - name: Start ClickHouse server
         run: |
           mkdir -p ./clickhouse_data
-          ./clickhouse server --daemon \
-            -- --path ./clickhouse_data \
+          ./clickhouse server \
+            --path ./clickhouse_data \
             --http_port 8123 \
-            --tcp_port 9000
+            --tcp_port 9000 \
+            > ./clickhouse_server.log 2>&1 &
+          echo $! > ./clickhouse_server.pid
+          echo "ClickHouse server started with PID $(cat ./clickhouse_server.pid)"
 
       - name: Wait for ClickHouse
         run: |
@@ -245,6 +256,11 @@ jobs:
               echo "ClickHouse is ready!"
               ./clickhouse client --query "SELECT version()"
               break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "ClickHouse failed to start. Logs:"
+              cat ./clickhouse_server.log || echo "No log file found"
+              exit 1
             fi
             echo "Still waiting... ($i/60)"
             sleep 2
