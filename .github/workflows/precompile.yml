@@ -155,38 +155,32 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: "1.18.4"
 
-      - name: Install Podman
-        run: brew install podman
-
-      - name: Start Podman machine
+      - name: Download ClickHouse binary
         run: |
-          podman machine init
-          podman machine start
-          podman info
+          curl https://clickhouse.com/ | sh
+          chmod +x ./clickhouse
 
-      - name: Start ClickHouse
+      - name: Start ClickHouse server
         run: |
-          podman run -d \
-            --name clickhouse \
-            -p 9000:9000 \
-            -p 8123:8123 \
-            -e CLICKHOUSE_USER=default \
-            -e CLICKHOUSE_PASSWORD="" \
-            -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
-            clickhouse/clickhouse-server:latest
+          mkdir -p ./clickhouse_data
+          ./clickhouse server --daemon \
+            -- --path ./clickhouse_data \
+            --http_port 8123 \
+            --tcp_port 9000
 
       - name: Wait for ClickHouse
         run: |
           echo "Waiting for ClickHouse to start..."
           for i in {1..60}; do
-            if podman exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+            if ./clickhouse client --query "SELECT 1" 2>/dev/null; then
               echo "ClickHouse is ready!"
+              ./clickhouse client --query "SELECT version()"
               break
             fi
             echo "Still waiting... ($i/60)"
             sleep 2
           done
-          podman exec clickhouse clickhouse-client --query "SELECT 1"
+          ./clickhouse client --query "SELECT 1"
 
       - name: Install dependencies
         run: |
@@ -230,38 +224,32 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: "1.18.4"
 
-      - name: Install Podman
-        run: brew install podman
-
-      - name: Start Podman machine
+      - name: Download ClickHouse binary
         run: |
-          podman machine init
-          podman machine start
-          podman info
+          curl https://clickhouse.com/ | sh
+          chmod +x ./clickhouse
 
-      - name: Start ClickHouse
+      - name: Start ClickHouse server
         run: |
-          podman run -d \
-            --name clickhouse \
-            -p 9000:9000 \
-            -p 8123:8123 \
-            -e CLICKHOUSE_USER=default \
-            -e CLICKHOUSE_PASSWORD="" \
-            -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
-            clickhouse/clickhouse-server:latest
+          mkdir -p ./clickhouse_data
+          ./clickhouse server --daemon \
+            -- --path ./clickhouse_data \
+            --http_port 8123 \
+            --tcp_port 9000
 
       - name: Wait for ClickHouse
         run: |
           echo "Waiting for ClickHouse to start..."
           for i in {1..60}; do
-            if podman exec clickhouse clickhouse-client --query "SELECT 1" 2>/dev/null; then
+            if ./clickhouse client --query "SELECT 1" 2>/dev/null; then
               echo "ClickHouse is ready!"
+              ./clickhouse client --query "SELECT version()"
               break
             fi
             echo "Still waiting... ($i/60)"
             sleep 2
           done
-          podman exec clickhouse clickhouse-client --query "SELECT 1"
+          ./clickhouse client --query "SELECT 1"
 
       - name: Install dependencies
         run: |
