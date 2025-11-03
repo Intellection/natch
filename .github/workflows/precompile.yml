@@ -129,82 +129,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-  # Build and test on macOS Intel
-  macos-intel:
-    name: macOS Intel (x86_64)
-    runs-on: macos-13
-    strategy:
-      matrix:
-        otp: ["25.0", "26.2", "27.2"]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: erlef/setup-beam@v1
-        with:
-          otp-version: ${{ matrix.otp }}
-          elixir-version: "1.18.4"
-
-      - name: Download ClickHouse binary
-        run: |
-          curl https://clickhouse.com/ | sh
-          chmod +x ./clickhouse
-
-      - name: Start ClickHouse server
-        run: |
-          ./clickhouse server > ./clickhouse_server.log 2>&1 &
-          echo $! > ./clickhouse_server.pid
-          echo "ClickHouse server started with PID $(cat ./clickhouse_server.pid)"
-          sleep 5
-
-      - name: Wait for ClickHouse
-        run: |
-          echo "Waiting for ClickHouse to start..."
-          for i in {1..15}; do
-            if ./clickhouse client --query "SELECT 1" 2>/dev/null; then
-              echo "ClickHouse is ready!"
-              ./clickhouse client --query "SELECT version()"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "ClickHouse failed to start. Logs:"
-              cat ./clickhouse_server.log || echo "No log file found"
-              exit 1
-            fi
-            echo "Still waiting... ($i/60)"
-            sleep 2
-          done
-          ./clickhouse client --query "SELECT 1"
-
-      - name: Install dependencies
-        run: |
-          brew install cmake openssl
-          mix deps.get
-
-      - name: Precompile NIFs
-        run: |
-          export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
-          mkdir -p $ELIXIR_MAKE_CACHE_DIR
-          MIX_ENV=prod mix elixir_make.precompile
-
-      - name: Upload artifacts to release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: cache/*.tar.gz
-          draft: true
-
-      - name: Run tests on x86_64 macOS
-        run: mix test --exclude integration
-        env:
-          CLICKHOUSE_HOST: localhost
-          CLICKHOUSE_PORT: 9000
-
-  # Build and test on macOS Apple Silicon
-  macos-arm:
-    name: macOS Apple Silicon (ARM64)
+  # Build and test on macOS Apple Silicon (builds both ARM64 and x86_64)
+  macos:
+    name: macOS (ARM64 + x86_64)
     runs-on: macos-14
     strategy:
       matrix:
@@ -269,7 +196,7 @@ jobs:
           files: cache/*.tar.gz
           draft: true
 
-      - name: Run tests on ARM64 macOS
+      - name: Run tests on macOS
         run: mix test --exclude integration
         env:
           CLICKHOUSE_HOST: localhost
