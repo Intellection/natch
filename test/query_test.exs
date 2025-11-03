@@ -15,11 +15,12 @@ defmodule Chex.QueryTest do
       if Process.alive?(conn) do
         try do
           Connection.execute(conn, "DROP TABLE IF EXISTS #{table}")
-        rescue
-          _ -> :ok
+        catch
+          :exit, _ -> :ok
         end
 
-        GenServer.stop(conn)
+        # Use Process.exit to avoid race conditions
+        Process.exit(conn, :normal)
       end
     end)
 

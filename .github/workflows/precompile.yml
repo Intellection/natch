@@ -37,20 +37,17 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
-      - name: Compile (for native x86_64 tests)
-        run: mix compile
+      - name: Precompile NIFs (native + cross-compile)
+        run: |
+          export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
+          mkdir -p $ELIXIR_MAKE_CACHE_DIR
+          MIX_ENV=prod mix elixir_make.precompile
 
       - name: Run tests on x86_64
         run: mix test --exclude integration
         env:
           CLICKHOUSE_HOST: localhost
           CLICKHOUSE_PORT: 9000
-
-      - name: Precompile NIFs (native + cross-compile)
-        run: |
-          export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
-          mkdir -p $ELIXIR_MAKE_CACHE_DIR
-          MIX_ENV=prod mix elixir_make.precompile
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v1
@@ -99,20 +96,17 @@ jobs:
           sudo apt-get install -y build-essential cmake libssl-dev
           mix deps.get
 
-      - name: Compile
-        run: mix compile
+      - name: Precompile NIFs
+        run: |
+          export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
+          mkdir -p $ELIXIR_MAKE_CACHE_DIR
+          MIX_ENV=prod mix elixir_make.precompile
 
       - name: Run tests on ARM64
         run: mix test --exclude integration
         env:
           CLICKHOUSE_HOST: localhost
           CLICKHOUSE_PORT: 9000
-
-      - name: Precompile NIFs
-        run: |
-          export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
-          mkdir -p $ELIXIR_MAKE_CACHE_DIR
-          MIX_ENV=prod mix elixir_make.precompile
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v1
@@ -191,17 +185,17 @@ jobs:
           brew install cmake openssl
           mix deps.get
 
-      - name: Run tests on x86_64 macOS
-        run: mix test --exclude integration
-        env:
-          CLICKHOUSE_HOST: localhost
-          CLICKHOUSE_PORT: 9000
-
       - name: Precompile NIFs
         run: |
           export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
           mkdir -p $ELIXIR_MAKE_CACHE_DIR
           MIX_ENV=prod mix elixir_make.precompile
+
+      - name: Run tests on x86_64 macOS
+        run: mix test --exclude integration
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 9000
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v1
@@ -264,17 +258,17 @@ jobs:
           brew install cmake openssl
           mix deps.get
 
-      - name: Run tests on ARM64 macOS
-        run: mix test --exclude integration
-        env:
-          CLICKHOUSE_HOST: localhost
-          CLICKHOUSE_PORT: 9000
-
       - name: Precompile NIFs
         run: |
           export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
           mkdir -p $ELIXIR_MAKE_CACHE_DIR
           MIX_ENV=prod mix elixir_make.precompile
+
+      - name: Run tests on ARM64 macOS
+        run: mix test --exclude integration
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 9000
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v1
