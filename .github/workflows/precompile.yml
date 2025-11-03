@@ -10,9 +10,6 @@ jobs:
   linux:
     name: Linux (all architectures)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        otp: ["25.0", "26.2", "27.2"]
 
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +18,8 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: ${{ matrix.otp }}
-          elixir-version: "1.18.4"
+          otp-version: "28.1"
+          elixir-version: "1.19.1"
 
       - name: Install cross-compilation toolchains
         run: |
@@ -76,9 +73,6 @@ jobs:
   macos:
     name: macOS (ARM64 + x86_64)
     runs-on: macos-14
-    strategy:
-      matrix:
-        otp: ["25.0", "26.2", "27.2"]
 
     steps:
       - uses: actions/checkout@v4
@@ -87,8 +81,8 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: ${{ matrix.otp }}
-          elixir-version: "1.18.4"
+          otp-version: "28.1"
+          elixir-version: "1.19.1"
 
       - name: Download ClickHouse binary
         run: |
