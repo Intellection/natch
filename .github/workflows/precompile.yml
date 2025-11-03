@@ -6,9 +6,9 @@ on:
       - "v*"
 
 jobs:
-  # Build and test on x86_64 Linux, cross-compile for other Linux architectures
-  linux-x86:
-    name: Linux x86_64 + cross-compile
+  # Build all Linux architectures (x86_64, ARM64, ARMv7, RISC-V, i686)
+  linux:
+    name: Linux (all architectures)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -72,66 +72,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-  # Build and test on ARM64 Linux
-  linux-arm:
-    name: Linux ARM64 (aarch64)
-    runs-on: ubuntu-24.04-arm
-    strategy:
-      matrix:
-        otp: ["25.0", "26.2", "27.2"]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: erlef/setup-beam@v1
-        with:
-          otp-version: ${{ matrix.otp }}
-          elixir-version: "1.18.4"
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake libssl-dev
-          mix deps.get
-
-      - name: Precompile NIFs
-        run: |
-          export ELIXIR_MAKE_CACHE_DIR=$(pwd)/cache
-          mkdir -p $ELIXIR_MAKE_CACHE_DIR
-          MIX_ENV=prod mix elixir_make.precompile
-
-      - name: Upload artifacts to release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: cache/*.tar.gz
-          draft: true
-
-      - name: Run tests on ARM64
-        run: mix test --exclude integration
-        env:
-          CLICKHOUSE_HOST: localhost
-          CLICKHOUSE_PORT: 9000
-
-    services:
-      clickhouse:
-        image: clickhouse/clickhouse-server:latest
-        env:
-          CLICKHOUSE_USER: default
-          CLICKHOUSE_PASSWORD: ""
-          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-        ports:
-          - 9000:9000
-          - 8123:8123
-        options: >-
-          --health-cmd "clickhouse-client --query 'SELECT 1'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-  # Build and test on macOS Apple Silicon (builds both ARM64 and x86_64)
+  # Build and test on macOS (builds both ARM64 and x86_64)
   macos:
     name: macOS (ARM64 + x86_64)
     runs-on: macos-14
