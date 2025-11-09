@@ -107,7 +107,7 @@ schema = [
   metadata: {:nullable, :string}
 ]
 
-:ok = Natch.insert(conn, "events", columns, schema)
+:ok = Natch.insert_cols(conn, "events", columns, schema)
 
 # Query data
 {:ok, results} = Natch.select_rows(conn, "SELECT * FROM events WHERE user_id = 100")
@@ -161,48 +161,60 @@ Real-world performance comparison vs Pillar (HTTP-based client) on Apple M3 Pro,
 
 | Rows | Natch | Pillar | Speedup |
 |------|-------|--------|---------|
-| 10k | 13.5 ms | 63.9 ms | **4.7x faster** |
-| 100k | 184 ms | 626 ms | **3.4x faster** |
-| 1M | 2,094 ms | 5,545 ms | **2.6x faster** |
+| 10k | 12.9 ms | 62.3 ms | **4.8x faster** |
+| 100k | 156 ms | 623 ms | **4.0x faster** |
+| 1M | 1,338 ms | 5,111 ms | **3.8x faster** |
+
+**Note:** Natch uses optimized columnar generation for best performance. See Performance Tips below.
 
 ### SELECT Performance
 
 | Query Type | Natch | Pillar | Speedup |
 |------------|-------|--------|---------|
-| Aggregation | 3.2 ms | 4.8 ms | **1.5x faster** |
-| Filtered (10k rows) | 10.6 ms | 50.8 ms | **4.8x faster** |
-| Full scan (1M rows) | 749 ms | 4,711 ms | **6.3x faster** |
+| Aggregation | 3.5 ms | 4.8 ms | **1.4x faster** |
+| Filtered (10k rows) | 11.2 ms | 52.8 ms | **4.7x faster** |
+| Full scan (1M rows) | 796 ms | 4,908 ms | **6.2x faster** |
 
 ### Key Takeaways
 
 - **Native protocol is faster** - Natch's native TCP protocol with binary columnar format outperforms HTTP+JSON
-- **Scales better** - Performance advantage increases with data size (6.3x for 1M rows vs 1.5x for aggregations)
+- **Scales better** - Performance advantage increases with data size (6.2x for 1M rows vs 1.4x for aggregations)
 - **Low overhead** - Minimal BEAM memory usage due to efficient NIF boundary crossing
+- **Optimized for analytics** - Memory-locality optimizations provide 36% faster INSERT performance over naive implementations
 
 See `bench/README.md` and `BINARY_PASSTHROUGH.md` for detailed analysis and methodology.
 
 ## Core Concepts
 
-### Columnar Format (Recommended)
+### Columnar Format (Recommended for INSERT)
 
-Natch uses a **columnar-first API** that matches ClickHouse's native storage format:
+Natch provides a **symmetrical API** for both SELECT and INSERT operations, with columnar format recommended for maximum INSERT performance:
 
 ```elixir
-# ✅ GOOD: Columnar format - 3 NIF calls for any number of rows
+# ✅ RECOMMENDED: Columnar format - M NIF calls (one per column) regardless of row count
 columns = %{
   id: [1, 2, 3, 4, 5],
   name: ["Alice", "Bob", "Charlie", "Dave", "Eve"],
   value: [100.0, 200.0, 300.0, 400.0, 500.0]
 }
 
-Natch.insert(conn, "table", columns, schema)
+Natch.insert_cols(conn, "table", columns, schema)
+
+# Row format also available for convenience (converts to columnar internally)
+rows = [
+  %{id: 1, name: "Alice", value: 100.0},
+  %{id: 2, name: "Bob", value: 200.0}
+]
+
+Natch.insert_rows(conn, "table", rows, schema)
 ```
 
-Why columnar?
-- **100x faster** - M NIF calls instead of N×M (rows × columns)
-- **Natural fit** - ClickHouse is a columnar database
+Why columnar for INSERT?
+- **10-100x faster** - M NIF calls instead of N×M (rows × columns)
+- **Natural fit** - Matches ClickHouse's native storage format
 - **Analytics-first** - Matches how you work with data (SUM, AVG, GROUP BY operate on columns)
 - **Better compression** - Column values compressed together
+- **Lower overhead** - No conversion needed (unlike `insert_rows`)
 
 ### Type System
 
@@ -405,9 +417,11 @@ total = Enum.sum(values)
 
 ### Inserting Data
 
-#### High-Level API (Recommended)
+Natch provides symmetrical insert APIs matching the SELECT operations:
+
+#### Columnar Format (Recommended for Performance)
 ```elixir
-# Columnar format - optimal performance
+# insert_cols - optimal performance, matches ClickHouse native format
 columns = %{
   id: [1, 2, 3],
   name: ["Alice", "Bob", "Charlie"]
@@ -415,8 +429,24 @@ columns = %{
 
 schema = [id: :uint64, name: :string]
 
-:ok = Natch.insert(conn, "users", columns, schema)
+:ok = Natch.insert_cols(conn, "users", columns, schema)
 ```
+
+#### Row Format (Convenience)
+```elixir
+# insert_rows - convenient for small datasets, converts internally
+rows = [
+  %{id: 1, name: "Alice"},
+  %{id: 2, name: "Bob"},
+  %{id: 3, name: "Charlie"}
+]
+
+schema = [id: :uint64, name: :string]
+
+:ok = Natch.insert_rows(conn, "users", rows, schema)
+```
+
+**Performance Note:** `insert_cols` is significantly faster for bulk operations (1000+ rows) as it avoids the O(N×M) conversion overhead. For maximum throughput, collect your data in columnar format from the start.
 
 #### Low-Level API (Advanced)
 ```elixir
@@ -439,20 +469,33 @@ Natch.Native.client_insert(client_ref, "users", block)
 
 ## Performance Tips
 
-### 1. Use Columnar Format
+### 1. Use Columnar Format with Optimized Generation
 ```elixir
-# ❌ BAD: Row-oriented (requires conversion)
+# ❌ SLOWER: Row format (O(N×M) conversion overhead)
 rows = [
   %{id: 1, name: "Alice"},
   %{id: 2, name: "Bob"}
 ]
+Natch.insert_rows(conn, "users", rows, schema)
 
-# ✅ GOOD: Columnar (direct insertion)
-columns = %{
-  id: [1, 2],
-  name: ["Alice", "Bob"]
-}
+# ✅ BEST: Columnar format with single-pass generation (optimal memory locality)
+initial = %{id: [], name: []}
+
+columns_reversed = Enum.reduce(records, initial, fn record, acc ->
+  %{
+    id: [record.id | acc.id],
+    name: [record.name | acc.name]
+  }
+end)
+
+columns = Map.new(columns_reversed, fn {key, vals} ->
+  {key, :lists.reverse(vals)}
+end)
+
+Natch.insert_cols(conn, "users", columns, schema)
 ```
+
+**Why this pattern?** Sequential prepends create adjacent cons cells in memory, and `:lists.reverse/1` produces contiguous allocations. This optimal memory locality provides 33% better performance than naive columnar generation and beats row-major conversion by 7% for large datasets (1M+ rows).
 
 ### 2. Batch Your Inserts
 ```elixir
@@ -463,7 +506,7 @@ data
 |> Stream.chunk_every(chunk_size)
 |> Enum.each(fn chunk ->
   columns = transpose_to_columnar(chunk)
-  Natch.insert(conn, "table", columns, schema)
+  Natch.insert_cols(conn, "table", columns, schema)
 end)
 ```
 

@@ -17,14 +17,23 @@ defmodule ComplexTypesBench do
     # Benchmark SELECT queries
     Benchee.run(
       %{
-        "Nullable SELECT 1M rows" => fn ->
-          {:ok, _rows} = Natch.query(pid, "SELECT * FROM bench_nullable")
+        "Nullable SELECT 1M rows (row-major)" => fn ->
+          {:ok, _rows} = Natch.select_rows(pid, "SELECT * FROM bench_nullable")
         end,
-        "Map SELECT 100K rows" => fn ->
-          {:ok, _rows} = Natch.query(pid, "SELECT * FROM bench_map")
+        "Nullable SELECT 1M rows (columnar)" => fn ->
+          {:ok, _cols} = Natch.select_cols(pid, "SELECT * FROM bench_nullable")
         end,
-        "Tuple SELECT 500K rows" => fn ->
-          {:ok, _rows} = Natch.query(pid, "SELECT * FROM bench_tuple")
+        "Map SELECT 100K rows (row-major)" => fn ->
+          {:ok, _rows} = Natch.select_rows(pid, "SELECT * FROM bench_map")
+        end,
+        "Map SELECT 100K rows (columnar)" => fn ->
+          {:ok, _cols} = Natch.select_cols(pid, "SELECT * FROM bench_map")
+        end,
+        "Tuple SELECT 500K rows (row-major)" => fn ->
+          {:ok, _rows} = Natch.select_rows(pid, "SELECT * FROM bench_tuple")
+        end,
+        "Tuple SELECT 500K rows (columnar)" => fn ->
+          {:ok, _cols} = Natch.select_cols(pid, "SELECT * FROM bench_tuple")
         end
       },
       time: 10,
@@ -36,18 +45,18 @@ defmodule ComplexTypesBench do
     )
 
     IO.puts("\n=== Cleaning up ===\n")
-    Natch.query(pid, "DROP TABLE IF EXISTS bench_nullable")
-    Natch.query(pid, "DROP TABLE IF EXISTS bench_map")
-    Natch.query(pid, "DROP TABLE IF EXISTS bench_tuple")
+    Natch.execute(pid, "DROP TABLE IF EXISTS bench_nullable")
+    Natch.execute(pid, "DROP TABLE IF EXISTS bench_map")
+    Natch.execute(pid, "DROP TABLE IF EXISTS bench_tuple")
 
     IO.puts("✓ Benchmark complete!")
     IO.puts("\nHTML report generated: bench/results_complex_types.html")
   end
 
   defp setup_nullable_bench(pid) do
-    Natch.query(pid, "DROP TABLE IF EXISTS bench_nullable")
+    Natch.execute(pid, "DROP TABLE IF EXISTS bench_nullable")
 
-    Natch.query(
+    Natch.execute(
       pid,
       """
       CREATE TABLE bench_nullable (
@@ -100,14 +109,14 @@ defmodule ComplexTypesBench do
     ]
 
     IO.puts("Inserting nullable data...")
-    :ok = Natch.insert(pid, "bench_nullable", block, schema)
+    :ok = Natch.insert_cols(pid, "bench_nullable", block, schema)
     IO.puts("✓ Nullable table populated with #{row_count} rows")
   end
 
   defp setup_map_bench(pid) do
-    Natch.query(pid, "DROP TABLE IF EXISTS bench_map")
+    Natch.execute(pid, "DROP TABLE IF EXISTS bench_map")
 
-    Natch.query(
+    Natch.execute(
       pid,
       """
       CREATE TABLE bench_map (
@@ -147,14 +156,14 @@ defmodule ComplexTypesBench do
     ]
 
     IO.puts("Inserting map data...")
-    :ok = Natch.insert(pid, "bench_map", block, schema)
+    :ok = Natch.insert_cols(pid, "bench_map", block, schema)
     IO.puts("✓ Map table populated with #{row_count} rows")
   end
 
   defp setup_tuple_bench(pid) do
-    Natch.query(pid, "DROP TABLE IF EXISTS bench_tuple")
+    Natch.execute(pid, "DROP TABLE IF EXISTS bench_tuple")
 
-    Natch.query(
+    Natch.execute(
       pid,
       """
       CREATE TABLE bench_tuple (
@@ -195,7 +204,7 @@ defmodule ComplexTypesBench do
     ]
 
     IO.puts("Inserting tuple data...")
-    :ok = Natch.insert(pid, "bench_tuple", block, schema)
+    :ok = Natch.insert_cols(pid, "bench_tuple", block, schema)
     IO.puts("✓ Tuple table populated with #{row_count} rows")
   end
 end

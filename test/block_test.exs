@@ -137,7 +137,7 @@ defmodule Natch.BlockTest do
       schema = [id: :uint64, name: :string]
       columns = %{id: [1], name: ["Alice"]}
 
-      assert :ok = Natch.insert(conn, "#{table}", columns, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns, schema)
     end
 
     test "can insert multiple rows", %{conn: conn, table: table} do
@@ -159,7 +159,7 @@ defmodule Natch.BlockTest do
         amount: [100.5, 200.75, 300.25]
       }
 
-      assert :ok = Natch.insert(conn, "#{table}", columns, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns, schema)
     end
 
     test "can insert with all supported types", %{conn: conn, table: table} do
@@ -191,7 +191,7 @@ defmodule Natch.BlockTest do
         created_at: [~U[2024-10-29 10:00:00Z], ~U[2024-10-29 11:00:00Z]]
       }
 
-      assert :ok = Natch.insert(conn, "#{table}", columns, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns, schema)
     end
 
     test "can insert large batch", %{conn: conn, table: table} do
@@ -211,7 +211,7 @@ defmodule Natch.BlockTest do
 
       schema = [id: :uint64, value: :uint64]
 
-      assert :ok = Natch.insert(conn, "#{table}", columns, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns, schema)
     end
 
     test "can insert with string keys in columns", %{conn: conn, table: table} do
@@ -227,14 +227,14 @@ defmodule Natch.BlockTest do
       schema = [id: :uint64, name: :string]
       columns = %{"id" => [1], "name" => ["Alice"]}
 
-      assert :ok = Natch.insert(conn, "#{table}", columns, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns, schema)
     end
 
     test "returns error for invalid table", %{conn: conn, table: _table} do
       schema = [id: :uint64]
       columns = %{id: [1]}
 
-      result = Natch.insert(conn, "nonexistent_table", columns, schema)
+      result = Natch.insert_cols(conn, "nonexistent_table", columns, schema)
       assert {:error, _reason} = result
     end
   end
@@ -409,15 +409,15 @@ defmodule Natch.BlockTest do
 
       # First batch
       columns1 = %{id: [1, 2], batch: [1, 1]}
-      assert :ok = Natch.insert(conn, "#{table}", columns1, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns1, schema)
 
       # Second batch
       columns2 = %{id: [3, 4], batch: [2, 2]}
-      assert :ok = Natch.insert(conn, "#{table}", columns2, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns2, schema)
 
       # Third batch
       columns3 = %{id: [5], batch: [3]}
-      assert :ok = Natch.insert(conn, "#{table}", columns3, schema)
+      assert :ok = Natch.insert_cols(conn, "#{table}", columns3, schema)
     end
   end
 end

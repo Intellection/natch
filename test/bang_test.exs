@@ -37,7 +37,7 @@ defmodule Natch.BangTest do
 
       schema = [id: :uint64, name: :string]
       columns = %{id: [1, 2, 3], name: ["Alice", "Bob", "Charlie"]}
-      Natch.insert(conn, table, columns, schema)
+      Natch.insert_cols(conn, table, columns, schema)
 
       # Query with bang function
       result = Natch.select_rows!(conn, "SELECT * FROM #{table} ORDER BY id")
@@ -100,7 +100,7 @@ defmodule Natch.BangTest do
       schema = [id: :uint64, name: :string]
       columns = %{id: [1, 2], name: ["Alice", "Bob"]}
 
-      result = Natch.insert!(conn, table, columns, schema)
+      result = Natch.insert_cols!(conn, table, columns, schema)
       assert :ok = result
 
       # Verify data was inserted
@@ -113,7 +113,7 @@ defmodule Natch.BangTest do
       columns = %{id: [1]}
 
       assert_raise RuntimeError, ~r/Insert failed/, fn ->
-        Natch.insert!(conn, "nonexistent_table", columns, schema)
+        Natch.insert_cols!(conn, "nonexistent_table", columns, schema)
       end
     end
 
@@ -130,7 +130,7 @@ defmodule Natch.BangTest do
       columns = %{id: [1], name: ["Alice"]}
 
       assert_raise RuntimeError, ~r/Insert failed/, fn ->
-        Natch.insert!(conn, table, columns, schema)
+        Natch.insert_cols!(conn, table, columns, schema)
       end
     end
   end

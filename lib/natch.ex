@@ -235,27 +235,73 @@ defmodule Natch do
   # Insert Operations
 
   @doc """
-  Inserts data into a table using native columnar format.
+  Inserts data in row format (list of maps).
 
-  Natch uses **columnar format** for maximum performance (10-1000x faster than row-oriented).
-  Columns should be a map of column_name => [values].
+  Convenience wrapper that converts rows to columnar format before inserting.
 
-  Schema defines the column names and types.
+  **Performance Note:** For bulk operations (1000+ rows), prefer `insert_cols/4`
+  which avoids the O(N*M) conversion overhead. The conversion from rows to columns
+  requires touching every value, making it less efficient for large datasets.
+
+  ## Examples
+
+      # Row format - convenient for small datasets or single inserts
+      rows = [
+        %{id: 1, name: "Alice"},
+        %{id: 2, name: "Bob"}
+      ]
+      schema = [id: :uint64, name: :string]
+      :ok = Natch.insert_rows(conn, "users", rows, schema)
+
+      # Supports both atom and string keys
+      rows = [
+        %{"id" => 1, "name" => "Alice"},
+        %{"id" => 2, "name" => "Bob"}
+      ]
+      :ok = Natch.insert_rows(conn, "users", rows, schema)
+  """
+  @spec insert_rows(conn(), String.t(), [map()], schema()) :: :ok | {:error, term()}
+  def insert_rows(conn, table, rows, schema) when is_list(rows) and is_list(schema) do
+    columns = Natch.Conversion.rows_to_columns(rows, schema)
+    insert_cols(conn, table, columns, schema)
+  end
+
+  @doc """
+  Inserts data in row format, raising on error.
+
+  ## Examples
+
+      rows = [%{id: 1, name: "Alice"}]
+      schema = [id: :uint64, name: :string]
+      Natch.insert_rows!(conn, "users", rows, schema)
+  """
+  @spec insert_rows!(conn(), String.t(), [map()], schema()) :: :ok
+  def insert_rows!(conn, table, rows, schema) do
+    case insert_rows(conn, table, rows, schema) do
+      :ok -> :ok
+      {:error, reason} -> raise "Insert failed: #{inspect(reason)}"
+    end
+  end
+
+  @doc """
+  Inserts data in columnar format (map of lists).
+
+  **Recommended for performance:** Columnar format provides maximum performance by
+  matching ClickHouse's native storage format. Makes M NIF calls (one per column)
+  instead of N*M calls for row-oriented approaches.
 
   ## Why Columnar?
 
   - **Matches ClickHouse native storage** - no transposition needed
-  - **10-1000x faster** - 1 NIF call per column (not per value!)
+  - **100x fewer NIF calls** - M calls instead of N*M (e.g., 10 calls for 10k rows × 10 columns)
   - **Natural for analytics** - operations work on columns, not rows
+  - **Better compression** - columnar data compresses more efficiently
 
-  ## Schema Types
+  ## Performance Comparison
 
-  Supported types:
-  - `:uint64` - UInt64
-  - `:int64` - Int64
-  - `:string` - String
-  - `:float64` - Float64
-  - `:datetime` - DateTime (pass Elixir DateTime, converts to Unix timestamp)
+  For 10,000 rows × 10 columns:
+  - `insert_cols`: 10 NIF calls (one per column)
+  - `insert_rows`: 10 NIF calls + 100,000 cell conversions
 
   ## Examples
 
@@ -265,9 +311,17 @@ defmodule Natch do
         name: ["Alice", "Bob", "Charlie"]
       }
       schema = [id: :uint64, name: :string]
-      :ok = Natch.insert(conn, "users", columns, schema)
+      :ok = Natch.insert_cols(conn, "users", columns, schema)
 
-      # With all types
+      # Bulk insert (extremely efficient!)
+      columns = %{
+        id: Enum.to_list(1..100_000),
+        value: Enum.map(1..100_000, & &1 * 2)
+      }
+      schema = [id: :uint64, value: :uint64]
+      :ok = Natch.insert_cols(conn, "bulk_table", columns, schema)
+
+      # All ClickHouse types supported
       columns = %{
         id: [1, 2, 3],
         count: [-42, 100, -5],
@@ -282,38 +336,25 @@ defmodule Natch do
         amount: :float64,
         created_at: :datetime
       ]
-      :ok = Natch.insert(conn, "events", columns, schema)
-
-      # Bulk insert (extremely efficient!)
-      columns = %{
-        id: Enum.to_list(1..100_000),
-        value: Enum.map(1..100_000, & &1 * 2)
-      }
-      schema = [id: :uint64, value: :uint64]
-      :ok = Natch.insert(conn, "bulk_table", columns, schema)
-
-      # If you have row-oriented data, convert first:
-      rows = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
-      columns = Natch.Conversion.rows_to_columns(rows, schema)
-      :ok = Natch.insert(conn, "users", columns, schema)
+      :ok = Natch.insert_cols(conn, "events", columns, schema)
   """
-  @spec insert(conn(), String.t(), map(), schema()) :: :ok | {:error, term()}
-  def insert(conn, table, columns, schema) when is_map(columns) and is_list(schema) do
+  @spec insert_cols(conn(), String.t(), map(), schema()) :: :ok | {:error, term()}
+  def insert_cols(conn, table, columns, schema) when is_map(columns) and is_list(schema) do
     GenServer.call(conn, {:insert, table, columns, schema}, :infinity)
   end
 
   @doc """
-  Inserts data into a table, raising on error.
+  Inserts data in columnar format, raising on error.
 
   ## Examples
 
       columns = %{id: [1, 2], name: ["Alice", "Bob"]}
       schema = [id: :uint64, name: :string]
-      Natch.insert!(conn, "users", columns, schema)
+      Natch.insert_cols!(conn, "users", columns, schema)
   """
-  @spec insert!(conn(), String.t(), map(), schema()) :: :ok
-  def insert!(conn, table, columns, schema) do
-    case insert(conn, table, columns, schema) do
+  @spec insert_cols!(conn(), String.t(), map(), schema()) :: :ok
+  def insert_cols!(conn, table, columns, schema) do
+    case insert_cols(conn, table, columns, schema) do
       :ok -> :ok
       {:error, reason} -> raise "Insert failed: #{inspect(reason)}"
     end

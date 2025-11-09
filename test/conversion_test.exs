@@ -58,7 +58,7 @@ defmodule Natch.ConversionTest do
       rows = [%{id: 1}]
       schema = [id: :uint64, name: :string]
 
-      assert_raise ArgumentError, ~r/Missing column :name/, fn ->
+      assert_raise KeyError, ~r/key :name not found/, fn ->
         Conversion.rows_to_columns(rows, schema)
       end
     end

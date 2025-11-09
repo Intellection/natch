@@ -1,20 +1,18 @@
 defmodule Natch.NestingIntegrationTest do
   use ExUnit.Case, async: true
 
-  alias Natch.Connection
-
   setup do
     # Generate unique table name for this test
     table = "test_#{System.unique_integer([:positive, :monotonic])}_#{:rand.uniform(999_999)}"
 
     # Start connection
-    {:ok, conn} = Connection.start_link(host: "localhost", port: 9000)
+    {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
 
     on_exit(fn ->
       # Clean up test table if it exists
       if Process.alive?(conn) do
         try do
-          Connection.execute(conn, "DROP TABLE IF EXISTS #{table}")
+          Natch.execute(conn, "DROP TABLE IF EXISTS #{table}")
         catch
           :exit, _ -> :ok
         end
@@ -29,7 +27,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Array(Nullable(T)) roundtrip" do
     test "Array(Nullable(String)) with mixed nulls", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         tags Array(Nullable(String))
@@ -47,10 +45,10 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
       # SELECT and verify
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       assert result == [
@@ -61,7 +59,7 @@ defmodule Natch.NestingIntegrationTest do
     end
 
     test "Array(Nullable(UInt64)) with all nulls", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         values Array(Nullable(UInt64))
@@ -78,9 +76,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -92,7 +90,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "LowCardinality(Nullable(String)) roundtrip" do
     test "with interspersed nulls and duplicates", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         status LowCardinality(Nullable(String))
@@ -106,9 +104,9 @@ defmodule Natch.NestingIntegrationTest do
         status: ["active", nil, "inactive", "active", nil]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 5
 
       assert result == [
@@ -123,7 +121,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Tuple with Nullable elements roundtrip" do
     test "Tuple(Nullable(String), UInt64)", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         data Tuple(Nullable(String), UInt64)
@@ -141,9 +139,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       assert result == [
@@ -156,7 +154,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Map with Nullable values roundtrip" do
     test "Map(String, Nullable(UInt64))", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         metrics Map(String, Nullable(UInt64))
@@ -173,9 +171,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -187,7 +185,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Array(LowCardinality(String)) roundtrip" do
     test "with duplicated values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         tags Array(LowCardinality(String))
@@ -205,9 +203,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       assert result == [
@@ -220,7 +218,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Array(LowCardinality(Nullable(String))) roundtrip - triple wrapper!" do
     test "dictionary encoding with nulls", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         tags Array(LowCardinality(Nullable(String)))
@@ -237,9 +235,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -251,7 +249,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Map(String, Array(UInt64)) roundtrip" do
     test "arrays as map values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         data Map(String, Array(UInt64))
@@ -268,9 +266,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -282,7 +280,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Tuple(String, Array(UInt64)) roundtrip" do
     test "array as tuple element", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         data Tuple(String, Array(UInt64))
@@ -299,9 +297,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -313,7 +311,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Array(Array(Nullable(UInt64))) roundtrip - triple nesting" do
     test "with nulls at innermost level", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         matrix Array(Array(Nullable(UInt64)))
@@ -330,9 +328,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -344,7 +342,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Array(Array(Array(UInt64))) roundtrip - triple nesting" do
     test "deep nesting stress test", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         data Array(Array(Array(UInt64)))
@@ -361,9 +359,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -375,7 +373,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Array(Enum8) roundtrip" do
     test "enums in arrays", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         sizes Array(Enum8('small' = 1, 'medium' = 2, 'large' = 3))
@@ -395,9 +393,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
@@ -409,7 +407,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Tuple with Enum8 element roundtrip" do
     test "Tuple(Enum8, UInt64)", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         data Tuple(Enum8('low' = 1, 'high' = 2), UInt64)
@@ -430,9 +428,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       assert result == [
@@ -445,7 +443,7 @@ defmodule Natch.NestingIntegrationTest do
 
   describe "Map(String, Enum16) roundtrip" do
     test "enum as map value", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         ranks Map(String, Enum16('bronze' = 100, 'silver' = 200, 'gold' = 300))
@@ -465,9 +463,9 @@ defmodule Natch.NestingIntegrationTest do
         ]
       }
 
-      assert :ok = Natch.insert(conn, table, columns, schema)
+      assert :ok = Natch.insert_cols(conn, table, columns, schema)
 
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       assert result == [
