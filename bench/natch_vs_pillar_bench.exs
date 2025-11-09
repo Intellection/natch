@@ -45,9 +45,9 @@ defmodule NatchVsPillarBench do
       %{
         "Natch INSERT 10k rows" => fn ->
           table = Helpers.unique_table_name("natch_insert_10k")
-          Natch.Connection.execute(natch_conn, Helpers.create_test_table(table))
+          Natch.execute(natch_conn, Helpers.create_test_table(table))
           :ok = Natch.insert(natch_conn, table, columns_10k, schema)
-          Natch.Connection.execute(natch_conn, Helpers.drop_test_table(table))
+          Natch.execute(natch_conn, Helpers.drop_test_table(table))
         end,
         "Pillar INSERT 10k rows" => fn ->
           table = Helpers.unique_table_name("pillar_insert_10k")
@@ -57,9 +57,9 @@ defmodule NatchVsPillarBench do
         end,
         "Natch INSERT 100k rows" => fn ->
           table = Helpers.unique_table_name("natch_insert_100k")
-          Natch.Connection.execute(natch_conn, Helpers.create_test_table(table))
+          Natch.execute(natch_conn, Helpers.create_test_table(table))
           :ok = Natch.insert(natch_conn, table, columns_100k, schema)
-          Natch.Connection.execute(natch_conn, Helpers.drop_test_table(table))
+          Natch.execute(natch_conn, Helpers.drop_test_table(table))
         end,
         "Pillar INSERT 100k rows" => fn ->
           table = Helpers.unique_table_name("pillar_insert_100k")
@@ -69,9 +69,9 @@ defmodule NatchVsPillarBench do
         end,
         "Natch INSERT 1M rows" => fn ->
           table = Helpers.unique_table_name("natch_insert_1m")
-          Natch.Connection.execute(natch_conn, Helpers.create_test_table(table))
+          Natch.execute(natch_conn, Helpers.create_test_table(table))
           :ok = Natch.insert(natch_conn, table, columns_1m, schema)
-          Natch.Connection.execute(natch_conn, Helpers.drop_test_table(table))
+          Natch.execute(natch_conn, Helpers.drop_test_table(table))
         end,
         "Pillar INSERT 1M rows" => fn ->
           table = Helpers.unique_table_name("pillar_insert_1m")
@@ -99,8 +99,8 @@ defmodule NatchVsPillarBench do
     natch_select_table = "natch_select_bench"
     pillar_select_table = "pillar_select_bench"
 
-    Natch.Connection.execute(natch_conn, Helpers.drop_test_table(natch_select_table))
-    Natch.Connection.execute(natch_conn, Helpers.create_test_table(natch_select_table))
+    Natch.execute(natch_conn, Helpers.drop_test_table(natch_select_table))
+    Natch.execute(natch_conn, Helpers.create_test_table(natch_select_table))
     :ok = Natch.insert(natch_conn, natch_select_table, columns_1m, schema)
 
     {:ok, _} = Pillar.query(pillar_conn, Helpers.drop_test_table(pillar_select_table))
@@ -116,14 +116,14 @@ defmodule NatchVsPillarBench do
       %{
         "Natch SELECT all 1M rows" => fn ->
           {:ok, _cols} =
-            Natch.Connection.select_cols(natch_conn, "SELECT * FROM #{natch_select_table}")
+            Natch.select_cols(natch_conn, "SELECT * FROM #{natch_select_table}")
         end,
         "Pillar SELECT all 1M rows" => fn ->
           {:ok, _rows} = Pillar.select(pillar_conn, "SELECT * FROM #{pillar_select_table}")
         end,
         "Natch SELECT filtered (10k rows)" => fn ->
           {:ok, _cols} =
-            Natch.Connection.select_cols(
+            Natch.select_cols(
               natch_conn,
               "SELECT * FROM #{natch_select_table} WHERE user_id < 1000"
             )
@@ -137,7 +137,7 @@ defmodule NatchVsPillarBench do
         end,
         "Natch SELECT aggregation" => fn ->
           {:ok, _cols} =
-            Natch.Connection.select_cols(
+            Natch.select_cols(
               natch_conn,
               "SELECT event_type, count(*) as cnt FROM #{natch_select_table} GROUP BY event_type"
             )
@@ -166,7 +166,7 @@ defmodule NatchVsPillarBench do
 
     # Cleanup
     IO.puts("\n=== Cleaning up ===\n")
-    Natch.Connection.execute(natch_conn, Helpers.drop_test_table(natch_select_table))
+    Natch.execute(natch_conn, Helpers.drop_test_table(natch_select_table))
     {:ok, _} = Pillar.query(pillar_conn, Helpers.drop_test_table(pillar_select_table))
 
     GenServer.stop(natch_conn)
@@ -178,7 +178,7 @@ defmodule NatchVsPillarBench do
   end
 
   defp setup_natch do
-    Natch.Connection.start_link(
+    Natch.start_link(
       host: "localhost",
       port: 9000,
       database: "default"

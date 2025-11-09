@@ -6,13 +6,13 @@ defmodule Natch.ConnectionTest do
     table = "test_#{System.unique_integer([:positive, :monotonic])}_#{:rand.uniform(999_999)}"
 
     # Start test connection
-    {:ok, conn} = Natch.Connection.start_link(host: "localhost", port: 9000)
+    {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
 
     on_exit(fn ->
       # Clean up test table if it exists
       if Process.alive?(conn) do
         try do
-          Natch.Connection.execute(conn, "DROP TABLE IF EXISTS #{table}")
+          Natch.execute(conn, "DROP TABLE IF EXISTS #{table}")
         catch
           :exit, _ -> :ok
         end
@@ -27,14 +27,14 @@ defmodule Natch.ConnectionTest do
 
   describe "Connection management" do
     test "can start connection with default options", %{conn: _test_conn} do
-      {:ok, conn} = Natch.Connection.start_link(host: "localhost", port: 9000)
+      {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
       assert is_pid(conn)
       GenServer.stop(conn)
     end
 
     test "can start connection with custom options", %{conn: _conn} do
       {:ok, conn} =
-        Natch.Connection.start_link(
+        Natch.start_link(
           host: "localhost",
           port: 9000,
           database: "default",
@@ -47,18 +47,18 @@ defmodule Natch.ConnectionTest do
     end
 
     test "can get client reference", %{conn: conn} do
-      {:ok, client} = Natch.Connection.get_client(conn)
+      {:ok, client} = GenServer.call(conn, :get_client)
       assert is_reference(client)
     end
 
     test "can ping server", %{conn: conn} do
-      assert :ok = Natch.Connection.ping(conn)
+      assert :ok = Natch.ping(conn)
     end
 
     test "can reset connection", %{conn: conn} do
-      assert :ok = Natch.Connection.reset(conn)
+      assert :ok = Natch.reset(conn)
       # Connection should still work after reset
-      assert :ok = Natch.Connection.ping(conn)
+      assert :ok = Natch.ping(conn)
     end
   end
 
@@ -72,25 +72,25 @@ defmodule Natch.ConnectionTest do
       ) ENGINE = Memory
       """
 
-      assert :ok = Natch.Connection.execute(conn, sql)
+      assert :ok = Natch.execute(conn, sql)
     end
 
     test "can drop table", %{conn: conn, table: table} do
       # Create table first
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE IF NOT EXISTS #{table} (
         id UInt64
       ) ENGINE = Memory
       """)
 
       # Drop it
-      assert :ok = Natch.Connection.execute(conn, "DROP TABLE #{table}")
+      assert :ok = Natch.execute(conn, "DROP TABLE #{table}")
     end
 
     test "can create and drop table in sequence", %{conn: conn, table: table} do
       # Create
       assert :ok =
-               Natch.Connection.execute(conn, """
+               Natch.execute(conn, """
                CREATE TABLE #{table} (
                  id UInt64,
                  name String
@@ -98,11 +98,11 @@ defmodule Natch.ConnectionTest do
                """)
 
       # Verify it exists by trying to drop it (won't error if exists)
-      assert :ok = Natch.Connection.execute(conn, "DROP TABLE #{table}")
+      assert :ok = Natch.execute(conn, "DROP TABLE #{table}")
     end
 
     test "execute returns error for invalid SQL", %{conn: conn} do
-      result = Natch.Connection.execute(conn, "INVALID SQL SYNTAX")
+      result = Natch.execute(conn, "INVALID SQL SYNTAX")
       assert {:error, _reason} = result
     end
   end
@@ -110,7 +110,7 @@ defmodule Natch.ConnectionTest do
   describe "Multiple operations" do
     test "can execute multiple DDL statements", %{conn: conn, table: table} do
       assert :ok =
-               Natch.Connection.execute(conn, """
+               Natch.execute(conn, """
                CREATE TABLE #{table} (
                  id UInt64,
                  created DateTime
@@ -118,13 +118,13 @@ defmodule Natch.ConnectionTest do
                """)
 
       # Can still ping
-      assert :ok = Natch.Connection.ping(conn)
+      assert :ok = Natch.ping(conn)
 
       # Can drop
-      assert :ok = Natch.Connection.execute(conn, "DROP TABLE #{table}")
+      assert :ok = Natch.execute(conn, "DROP TABLE #{table}")
 
       # Can still ping after drop
-      assert :ok = Natch.Connection.ping(conn)
+      assert :ok = Natch.ping(conn)
     end
   end
 end

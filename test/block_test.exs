@@ -8,13 +8,13 @@ defmodule Natch.BlockTest do
     table = "test_#{System.unique_integer([:positive, :monotonic])}_#{:rand.uniform(999_999)}"
 
     # Start connection
-    {:ok, conn} = Natch.Connection.start_link(host: "localhost", port: 9000)
+    {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
 
     on_exit(fn ->
       # Clean up test table if it exists
       if Process.alive?(conn) do
         try do
-          Natch.Connection.execute(conn, "DROP TABLE IF EXISTS #{table}")
+          Natch.execute(conn, "DROP TABLE IF EXISTS #{table}")
         catch
           :exit, _ -> :ok
         end
@@ -126,7 +126,7 @@ defmodule Natch.BlockTest do
   describe "INSERT operations" do
     test "can insert single row", %{conn: conn, table: table} do
       # Create table
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -142,7 +142,7 @@ defmodule Natch.BlockTest do
 
     test "can insert multiple rows", %{conn: conn, table: table} do
       # Create table
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String,
@@ -164,7 +164,7 @@ defmodule Natch.BlockTest do
 
     test "can insert with all supported types", %{conn: conn, table: table} do
       # Create table
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         value Int64,
@@ -196,7 +196,7 @@ defmodule Natch.BlockTest do
 
     test "can insert large batch", %{conn: conn, table: table} do
       # Create table
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         value UInt64
@@ -216,7 +216,7 @@ defmodule Natch.BlockTest do
 
     test "can insert with string keys in columns", %{conn: conn, table: table} do
       # Create table
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -398,7 +398,7 @@ defmodule Natch.BlockTest do
   describe "Multiple sequential inserts" do
     test "can insert multiple batches", %{conn: conn, table: table} do
       # Create table
-      Natch.Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         batch UInt64

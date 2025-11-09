@@ -1,20 +1,18 @@
 defmodule Natch.BangTest do
   use ExUnit.Case, async: true
 
-  alias Natch.Connection
-
   setup do
     # Generate unique table name for this test
     table = "test_#{System.unique_integer([:positive, :monotonic])}_#{:rand.uniform(999_999)}"
 
     # Start connection
-    {:ok, conn} = Connection.start_link(host: "localhost", port: 9000)
+    {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
 
     on_exit(fn ->
       # Clean up test table if it exists
       if Process.alive?(conn) do
         try do
-          Connection.execute(conn, "DROP TABLE IF EXISTS #{table}")
+          Natch.execute(conn, "DROP TABLE IF EXISTS #{table}")
         catch
           :exit, _ -> :ok
         end
@@ -27,10 +25,10 @@ defmodule Natch.BangTest do
     {:ok, conn: conn, table: table}
   end
 
-  describe "query!/2" do
+  describe "select_rows!/2" do
     test "returns results on success", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -42,7 +40,7 @@ defmodule Natch.BangTest do
       Natch.insert(conn, table, columns, schema)
 
       # Query with bang function
-      result = Natch.query!(conn, "SELECT * FROM #{table} ORDER BY id")
+      result = Natch.select_rows!(conn, "SELECT * FROM #{table} ORDER BY id")
 
       assert is_list(result)
       assert length(result) == 3
@@ -52,13 +50,13 @@ defmodule Natch.BangTest do
 
     test "raises on invalid query", %{conn: conn, table: _table} do
       assert_raise RuntimeError, ~r/Query failed/, fn ->
-        Natch.query!(conn, "SELECT * FROM nonexistent_table")
+        Natch.select_rows!(conn, "SELECT * FROM nonexistent_table")
       end
     end
 
     test "raises on invalid SQL syntax", %{conn: conn, table: _table} do
       assert_raise RuntimeError, ~r/Query failed/, fn ->
-        Natch.query!(conn, "INVALID SQL SYNTAX")
+        Natch.select_rows!(conn, "INVALID SQL SYNTAX")
       end
     end
   end
@@ -92,7 +90,7 @@ defmodule Natch.BangTest do
   describe "insert!/4" do
     test "returns :ok on success", %{conn: conn, table: table} do
       # Create table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -106,7 +104,7 @@ defmodule Natch.BangTest do
       assert :ok = result
 
       # Verify data was inserted
-      {:ok, rows} = Connection.select_rows(conn, "SELECT count() as cnt FROM #{table}")
+      {:ok, rows} = Natch.select_rows(conn, "SELECT count() as cnt FROM #{table}")
       assert [%{cnt: 2}] = rows
     end
 
@@ -121,7 +119,7 @@ defmodule Natch.BangTest do
 
     test "raises on schema mismatch", %{conn: conn, table: table} do
       # Create table with different schema
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64
       ) ENGINE = Memory

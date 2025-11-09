@@ -251,10 +251,10 @@ ids = Natch.Parser.Binary.parse_uint64_array(bins["id"])
 
 ```elixir
 # Recommended (faster)
-{:ok, columns} = Natch.Connection.select_cols(conn, "SELECT * FROM table")
+{:ok, columns} = Natch.select_cols(conn, "SELECT * FROM table")
 
 # Not recommended (slower) unless you have a specific need
-{:ok, columns} = Natch.Connection.select_cols_binary(conn, "SELECT * FROM table")
+{:ok, columns} = Natch.select_cols_binary(conn, "SELECT * FROM table")
 ```
 
 ### Future Opportunities

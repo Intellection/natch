@@ -62,14 +62,14 @@ mix compile
 
 ```elixir
 # Start a connection
-{:ok, conn} = Natch.Connection.start_link(
+{:ok, conn} = Natch.start_link(
   host: "localhost",
   port: 9000,
   database: "default"
 )
 
 # Create a table
-Natch.Connection.execute(conn, """
+Natch.execute(conn, """
 CREATE TABLE events (
   id UInt64,
   user_id UInt32,
@@ -110,7 +110,7 @@ schema = [
 :ok = Natch.insert(conn, "events", columns, schema)
 
 # Query data
-{:ok, results} = Natch.Connection.select_rows(conn, "SELECT * FROM events WHERE user_id = 100")
+{:ok, results} = Natch.select_rows(conn, "SELECT * FROM events WHERE user_id = 100")
 IO.inspect(results)
 # => [
 #      %{id: 1, user_id: 100, event_type: "click", ...},
@@ -123,7 +123,7 @@ IO.inspect(results)
 ClickHouse Cloud requires SSL/TLS connections on port 9440:
 
 ```elixir
-{:ok, conn} = Natch.Connection.start_link(
+{:ok, conn} = Natch.start_link(
   host: "your-instance.clickhouse.cloud",
   port: 9440,
   database: "default",
@@ -140,7 +140,7 @@ ClickHouse Cloud requires SSL/TLS connections on port 9440:
 Configure socket-level timeouts to prevent operations from hanging indefinitely in production:
 
 ```elixir
-{:ok, conn} = Natch.Connection.start_link(
+{:ok, conn} = Natch.start_link(
   host: "localhost",
   port: 9000,
   connect_timeout: 5_000,   # Time to establish TCP connection (default: 5000ms)
@@ -312,13 +312,13 @@ columns = %{
 
 ```elixir
 # Basic connection
-{:ok, conn} = Natch.Connection.start_link(
+{:ok, conn} = Natch.start_link(
   host: "localhost",
   port: 9000
 )
 
 # With authentication and options
-{:ok, conn} = Natch.Connection.start_link(
+{:ok, conn} = Natch.start_link(
   host: "clickhouse.example.com",
   port: 9000,
   database: "analytics",
@@ -343,7 +343,7 @@ Connection options:
 #### DDL Operations
 ```elixir
 # Create table
-:ok = Natch.Connection.execute(conn, """
+:ok = Natch.execute(conn, """
 CREATE TABLE users (
   id UInt64,
   name String,
@@ -353,10 +353,10 @@ ORDER BY id
 """)
 
 # Drop table
-:ok = Natch.Connection.execute(conn, "DROP TABLE users")
+:ok = Natch.execute(conn, "DROP TABLE users")
 
 # Alter table
-:ok = Natch.Connection.execute(conn, "ALTER TABLE users ADD COLUMN age UInt8")
+:ok = Natch.execute(conn, "ALTER TABLE users ADD COLUMN age UInt8")
 ```
 
 #### SELECT Queries
@@ -368,14 +368,14 @@ Returns results as a list of maps, where each map represents a row:
 
 ```elixir
 # Simple query
-{:ok, rows} = Natch.Connection.select_rows(conn, "SELECT * FROM users")
+{:ok, rows} = Natch.query(conn, "SELECT * FROM users")
 # => {:ok, [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]}
 
 # With WHERE clause
-{:ok, rows} = Natch.Connection.select_rows(conn, "SELECT * FROM users WHERE id > 100")
+{:ok, rows} = Natch.query(conn, "SELECT * FROM users WHERE id > 100")
 
 # Aggregations
-{:ok, [result]} = Natch.Connection.select_rows(conn, """
+{:ok, [result]} = Natch.query(conn, """
   SELECT
     event_type,
     count() as count,
@@ -391,11 +391,11 @@ Returns results as a map of column lists, ideal for large result sets and data a
 
 ```elixir
 # Query returns columnar format
-{:ok, cols} = Natch.Connection.select_cols(conn, "SELECT * FROM users")
+{:ok, cols} = Natch.select_cols(conn, "SELECT * FROM users")
 # => {:ok, %{id: [1, 2, 3], name: ["Alice", "Bob", "Charlie"]}}
 
 # Perfect for analytics workflows
-{:ok, data} = Natch.Connection.select_cols(conn, "SELECT user_id, value FROM events")
+{:ok, data} = Natch.select_cols(conn, "SELECT user_id, value FROM events")
 # => {:ok, %{user_id: [1, 2, 1, 3], value: [10.5, 20.0, 15.5, 30.0]}}
 
 # Easy integration with data processing libraries
@@ -482,7 +482,7 @@ schema = [age: :uint8]  # Not :uint64
 ### 4. Enable Compression
 ```elixir
 # LZ4 compression reduces bandwidth by ~70% for typical workloads
-{:ok, conn} = Natch.Connection.start_link(
+{:ok, conn} = Natch.start_link(
   host: "localhost",
   port: 9000,
   compression: :lz4  # Enabled by default

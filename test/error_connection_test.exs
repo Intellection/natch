@@ -8,7 +8,7 @@ defmodule Natch.ConnectionErrorTest do
       Process.flag(:trap_exit, true)
 
       {:error, {%ConnectionError{} = error, _stacktrace}} =
-        Natch.Connection.start_link(host: "invalid.nonexistent.host.example", port: 9999)
+        Natch.start_link(host: "invalid.nonexistent.host.example", port: 9999)
 
       assert error.reason == :connection_failed
       # Error message varies by platform, but we got the right error type
@@ -18,13 +18,13 @@ defmodule Natch.ConnectionErrorTest do
 
   describe "server errors" do
     setup do
-      {:ok, conn} = Natch.Connection.start_link(host: "localhost", port: 9000)
+      {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
       {:ok, conn: conn}
     end
 
     test "returns structured error for syntax errors", %{conn: conn} do
       # Invalid SQL syntax should return server error with code/name
-      result = Natch.Connection.execute(conn, "INVALID SQL SYNTAX")
+      result = Natch.execute(conn, "INVALID SQL SYNTAX")
 
       assert {:error, error} = result
       # The error should be a structured map

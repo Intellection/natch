@@ -1,66 +1,7 @@
 defmodule Natch.Connection do
-  @moduledoc """
-  GenServer that manages a ClickHouse client connection via native TCP protocol.
-
-  ## Configuration Options
-
-  - `:host` - ClickHouse server host (default: "localhost")
-  - `:port` - Native TCP port (default: 9000 for non-SSL, 9440 for SSL)
-  - `:database` - Database name (default: "default")
-  - `:user` - Username (default: "default")
-  - `:password` - Password (optional)
-  - `:compression` - Enable LZ4 compression (default: true)
-  - `:ssl` - Enable SSL/TLS encryption (default: false)
-  - `:connect_timeout` - Connection establishment timeout in milliseconds (default: 5000)
-  - `:recv_timeout` - Socket receive timeout in milliseconds (default: 0 = no timeout)
-  - `:send_timeout` - Socket send timeout in milliseconds (default: 0 = no timeout)
-  - `:name` - Process name for registration (optional)
-
-  ## Timeout Configuration
-
-  Socket-level timeouts control how long operations can take:
-
-  - **connect_timeout**: Time to establish TCP connection (default: 5000ms)
-  - **recv_timeout**: Time to receive data from server (default: 0 = infinite)
-  - **send_timeout**: Time to send data to server (default: 0 = infinite)
-
-  **Important:** The default `recv_timeout` of 0 means queries can run indefinitely.
-  For production use, consider setting explicit timeouts:
-
-      {:ok, conn} = Natch.Connection.start_link(
-        host: "localhost",
-        recv_timeout: 60_000,  # 60 seconds
-        send_timeout: 60_000   # 60 seconds
-      )
-
-  When a timeout occurs, a `Natch.ConnectionError` is raised.
-
-  ## SSL/TLS Support
-
-  When `:ssl` is set to `true`, the connection uses TLS encryption with:
-  - System CA certificates for server verification
-  - Server Name Indication (SNI) enabled
-  - Peer certificate verification
-
-  ClickHouse Cloud requires SSL on port 9440.
-
-  ## Examples
-
-      # Local non-SSL connection
-      {:ok, conn} = Natch.Connection.start_link(
-        host: "localhost",
-        port: 9000
-      )
-
-      # ClickHouse Cloud SSL connection
-      {:ok, conn} = Natch.Connection.start_link(
-        host: "example.clickhouse.cloud",
-        port: 9440,
-        user: "default",
-        password: "your-password",
-        ssl: true
-      )
-  """
+  @moduledoc false
+  # Private implementation module for Natch.
+  # Use the public API on the Natch module instead.
 
   use GenServer
   alias Natch.Native

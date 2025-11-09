@@ -21,7 +21,7 @@ defmodule NatchOnlyBench do
 
     # Setup connection
     {:ok, natch_conn} =
-      Natch.Connection.start_link(
+      Natch.start_link(
         host: "localhost",
         port: 9000,
         database: "default"
@@ -44,21 +44,21 @@ defmodule NatchOnlyBench do
       %{
         "Natch INSERT 10k rows" => fn ->
           table = Helpers.unique_table_name("natch_insert_10k")
-          Natch.Connection.execute(natch_conn, Helpers.create_test_table(table))
+          Natch.execute(natch_conn, Helpers.create_test_table(table))
           :ok = Natch.insert(natch_conn, table, columns_10k, schema)
-          Natch.Connection.execute(natch_conn, Helpers.drop_test_table(table))
+          Natch.execute(natch_conn, Helpers.drop_test_table(table))
         end,
         "Natch INSERT 100k rows" => fn ->
           table = Helpers.unique_table_name("natch_insert_100k")
-          Natch.Connection.execute(natch_conn, Helpers.create_test_table(table))
+          Natch.execute(natch_conn, Helpers.create_test_table(table))
           :ok = Natch.insert(natch_conn, table, columns_100k, schema)
-          Natch.Connection.execute(natch_conn, Helpers.drop_test_table(table))
+          Natch.execute(natch_conn, Helpers.drop_test_table(table))
         end,
         "Natch INSERT 1M rows" => fn ->
           table = Helpers.unique_table_name("natch_insert_1m")
-          Natch.Connection.execute(natch_conn, Helpers.create_test_table(table))
+          Natch.execute(natch_conn, Helpers.create_test_table(table))
           :ok = Natch.insert(natch_conn, table, columns_1m, schema)
-          Natch.Connection.execute(natch_conn, Helpers.drop_test_table(table))
+          Natch.execute(natch_conn, Helpers.drop_test_table(table))
         end
       },
       warmup: 1,
@@ -79,8 +79,8 @@ defmodule NatchOnlyBench do
     IO.puts("\n=== Setting up SELECT benchmark table ===\n")
     select_table = "natch_select_bench"
 
-    Natch.Connection.execute(natch_conn, Helpers.drop_test_table(select_table))
-    Natch.Connection.execute(natch_conn, Helpers.create_test_table(select_table))
+    Natch.execute(natch_conn, Helpers.drop_test_table(select_table))
+    Natch.execute(natch_conn, Helpers.create_test_table(select_table))
     IO.puts("Inserting 1M rows for SELECT benchmarks...")
     :ok = Natch.insert(natch_conn, select_table, columns_1m, schema)
 
@@ -95,7 +95,7 @@ defmodule NatchOnlyBench do
           {:ok, _rows} = Natch.Connection.select_rows(natch_conn, "SELECT * FROM #{select_table}")
         end,
         "Natch SELECT all 1M rows (columnar)" => fn ->
-          {:ok, _cols} = Natch.Connection.select_cols(natch_conn, "SELECT * FROM #{select_table}")
+          {:ok, _cols} = Natch.select_cols(natch_conn, "SELECT * FROM #{select_table}")
         end,
         "Natch SELECT filtered 10k rows (row-major)" => fn ->
           {:ok, _rows} =
@@ -106,7 +106,7 @@ defmodule NatchOnlyBench do
         end,
         "Natch SELECT filtered 10k rows (columnar)" => fn ->
           {:ok, _cols} =
-            Natch.Connection.select_cols(
+            Natch.select_cols(
               natch_conn,
               "SELECT * FROM #{select_table} WHERE user_id < 1000"
             )
@@ -120,7 +120,7 @@ defmodule NatchOnlyBench do
         end,
         "Natch SELECT aggregation (columnar)" => fn ->
           {:ok, _cols} =
-            Natch.Connection.select_cols(
+            Natch.select_cols(
               natch_conn,
               "SELECT event_type, count(*) as cnt FROM #{select_table} GROUP BY event_type"
             )
@@ -142,7 +142,7 @@ defmodule NatchOnlyBench do
 
     # Cleanup
     IO.puts("\n=== Cleaning up ===\n")
-    Natch.Connection.execute(natch_conn, Helpers.drop_test_table(select_table))
+    Natch.execute(natch_conn, Helpers.drop_test_table(select_table))
 
     GenServer.stop(natch_conn)
 

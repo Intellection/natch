@@ -123,38 +123,79 @@ defmodule Natch do
   # Query Operations
 
   @doc """
-  Executes a SELECT query and returns all results as a list of maps.
+  Executes a SELECT query and returns results in row format (list of maps).
 
-  Column names become map keys (atoms). Results are materialized in memory.
+  Each row is represented as a map with column names as keys (atoms).
+  Results are materialized in memory.
 
   ## Examples
 
-      {:ok, rows} = Natch.query(conn, "SELECT * FROM users")
+      {:ok, rows} = Natch.select_rows(conn, "SELECT * FROM users")
       # => {:ok, [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]}
 
-      {:ok, rows} = Natch.query(conn, "SELECT id, name FROM users WHERE id = 1")
+      {:ok, rows} = Natch.select_rows(conn, "SELECT id, name FROM users WHERE id = 1")
       # => {:ok, [%{id: 1, name: "Alice"}]}
 
-      {:ok, rows} = Natch.query(conn, "SELECT count() as cnt FROM users")
+      {:ok, rows} = Natch.select_rows(conn, "SELECT count() as cnt FROM users")
       # => {:ok, [%{cnt: 2}]}
   """
-  @spec query(conn(), String.t()) :: {:ok, [row()]} | {:error, term()}
-  def query(conn, sql) do
+  @spec select_rows(conn(), String.t()) :: {:ok, [row()]} | {:error, term()}
+  def select_rows(conn, sql) do
     Connection.select_rows(conn, sql)
   end
 
   @doc """
-  Executes a SELECT query and returns all results, raising on error.
+  Executes a SELECT query and returns results in row format, raising on error.
 
   ## Examples
 
-      rows = Natch.query!(conn, "SELECT * FROM users")
+      rows = Natch.select_rows!(conn, "SELECT * FROM users")
       # => [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
   """
-  @spec query!(conn(), String.t()) :: [row()]
-  def query!(conn, sql) do
-    case query(conn, sql) do
+  @spec select_rows!(conn(), String.t()) :: [row()]
+  def select_rows!(conn, sql) do
+    case select_rows(conn, sql) do
       {:ok, rows} -> rows
+      {:error, reason} -> raise "Query failed: #{inspect(reason)}"
+    end
+  end
+
+  @doc """
+  Executes a SELECT query and returns results in columnar format.
+
+  Returns a map where keys are column names (atoms) and values are lists of column values.
+  This format is efficient for analytics workloads and integrates well with data processing
+  libraries.
+
+  ## Examples
+
+      {:ok, cols} = Natch.select_cols(conn, "SELECT id, name FROM users")
+      # => {:ok, %{id: [1, 2, 3], name: ["Alice", "Bob", "Charlie"]}}
+
+      {:ok, data} = Natch.select_cols(conn, "SELECT user_id, revenue FROM events")
+      # => {:ok, %{user_id: [1, 2, 1], revenue: [100.0, 200.0, 150.0]}}
+
+      # Easy integration with data analysis
+      %{user_id: ids, revenue: revenues} = data
+      total = Enum.sum(revenues)
+  """
+  @spec select_cols(conn(), String.t()) :: {:ok, map()} | {:error, term()}
+  def select_cols(conn, sql) do
+    Connection.select_cols(conn, sql)
+  end
+
+  @doc """
+  Executes a SELECT query and returns results in columnar format, raising on error.
+
+  ## Examples
+
+      cols = Natch.select_cols!(conn, "SELECT id, name FROM users")
+      # => %{id: [1, 2, 3], name: ["Alice", "Bob", "Charlie"]}
+  """
+  @spec select_cols!(conn(), String.t()) :: map()
+  def select_cols!(conn, sql) do
+    case select_cols(conn, sql) do
+      {:ok, cols} -> cols
       {:error, reason} -> raise "Query failed: #{inspect(reason)}"
     end
   end

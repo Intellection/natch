@@ -134,8 +134,8 @@ Test functionality:
 # With ClickHouse running on localhost:9000
 iex -S mix
 
-iex> {:ok, conn} = Natch.Connection.start_link(host: "localhost", port: 9000)
-iex> Natch.Connection.execute(conn, "SELECT 1")
+iex> {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
+iex> Natch.execute(conn, "SELECT 1")
 ```
 
 ## Troubleshooting

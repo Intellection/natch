@@ -1,20 +1,18 @@
 defmodule Natch.QueryTest do
   use ExUnit.Case, async: true
 
-  alias Natch.Connection
-
   setup do
     # Generate unique table name for this test
     table = "test_#{System.unique_integer([:positive, :monotonic])}_#{:rand.uniform(999_999)}"
 
     # Start connection
-    {:ok, conn} = Connection.start_link(host: "localhost", port: 9000)
+    {:ok, conn} = Natch.start_link(host: "localhost", port: 9000)
 
     on_exit(fn ->
       # Clean up test table if it exists
       if Process.alive?(conn) do
         try do
-          Connection.execute(conn, "DROP TABLE IF EXISTS #{table}")
+          Natch.execute(conn, "DROP TABLE IF EXISTS #{table}")
         catch
           :exit, _ -> :ok
         end
@@ -30,7 +28,7 @@ defmodule Natch.QueryTest do
   describe "SELECT operations" do
     test "can select from empty table", %{conn: conn, table: table} do
       # Create table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -38,12 +36,12 @@ defmodule Natch.QueryTest do
       """)
 
       # Query empty table
-      assert {:ok, []} = Connection.select_rows(conn, "SELECT * FROM #{table}")
+      assert {:ok, []} = Natch.select_rows(conn, "SELECT * FROM #{table}")
     end
 
     test "can select single row", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -55,14 +53,14 @@ defmodule Natch.QueryTest do
       Natch.insert(conn, "#{table}", columns, schema)
 
       # Query
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT id, name FROM #{table}")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT id, name FROM #{table}")
       assert length(result) == 1
       assert [%{id: 1, name: "Alice"}] = result
     end
 
     test "can select multiple rows", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -79,7 +77,7 @@ defmodule Natch.QueryTest do
       Natch.insert(conn, "#{table}", columns, schema)
 
       # Query
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT id, name FROM #{table}")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT id, name FROM #{table}")
       assert length(result) == 3
 
       assert Enum.any?(result, fn r -> r.id == 1 && r.name == "Alice" end)
@@ -89,7 +87,7 @@ defmodule Natch.QueryTest do
 
     test "can select with WHERE clause", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -107,7 +105,7 @@ defmodule Natch.QueryTest do
 
       # Query with WHERE
       assert {:ok, result} =
-               Connection.select_rows(conn, "SELECT * FROM #{table} WHERE id = 2")
+               Natch.select_rows(conn, "SELECT * FROM #{table} WHERE id = 2")
 
       assert length(result) == 1
       assert [%{id: 2, name: "Bob"}] = result
@@ -115,7 +113,7 @@ defmodule Natch.QueryTest do
 
     test "can select all supported types", %{conn: conn, table: table} do
       # Create table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         value Int64,
@@ -146,7 +144,7 @@ defmodule Natch.QueryTest do
 
       # Query
       assert {:ok, [result]} =
-               Connection.select_rows(
+               Natch.select_rows(
                  conn,
                  "SELECT id, value, name, amount, created_at FROM #{table}"
                )
@@ -163,7 +161,7 @@ defmodule Natch.QueryTest do
 
     test "can select with ORDER BY", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -181,7 +179,7 @@ defmodule Natch.QueryTest do
 
       # Query with ORDER BY
       assert {:ok, result} =
-               Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id ASC")
+               Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id ASC")
 
       assert length(result) == 3
       assert Enum.at(result, 0).id == 1
@@ -191,7 +189,7 @@ defmodule Natch.QueryTest do
 
     test "can select with LIMIT", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String
@@ -208,13 +206,13 @@ defmodule Natch.QueryTest do
       Natch.insert(conn, "#{table}", columns, schema)
 
       # Query with LIMIT
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} LIMIT 2")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} LIMIT 2")
       assert length(result) == 2
     end
 
     test "can select specific columns", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name String,
@@ -227,7 +225,7 @@ defmodule Natch.QueryTest do
       Natch.insert(conn, "#{table}", columns, schema)
 
       # Query specific columns
-      assert {:ok, [result]} = Connection.select_rows(conn, "SELECT name FROM #{table}")
+      assert {:ok, [result]} = Natch.select_rows(conn, "SELECT name FROM #{table}")
       assert result.name == "Alice"
       refute Map.has_key?(result, :id)
       refute Map.has_key?(result, :amount)
@@ -235,7 +233,7 @@ defmodule Natch.QueryTest do
 
     test "can select with aggregate functions", %{conn: conn, table: table} do
       # Create and populate table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         amount Float64
@@ -253,20 +251,20 @@ defmodule Natch.QueryTest do
 
       # Query with COUNT
       assert {:ok, [result]} =
-               Connection.select_rows(conn, "SELECT count() as cnt FROM #{table}")
+               Natch.select_rows(conn, "SELECT count() as cnt FROM #{table}")
 
       assert result.cnt == 3
 
       # Query with SUM
       assert {:ok, [result]} =
-               Connection.select_rows(conn, "SELECT sum(amount) as total FROM #{table}")
+               Natch.select_rows(conn, "SELECT sum(amount) as total FROM #{table}")
 
       assert_in_delta result.total, 600.0, 0.01
     end
 
     test "can handle large result sets", %{conn: conn, table: table} do
       # Create table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         value UInt64
@@ -283,7 +281,7 @@ defmodule Natch.QueryTest do
       Natch.insert(conn, "#{table}", columns, schema)
 
       # Query all
-      assert {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table}")
+      assert {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table}")
       assert length(result) == 10_000
 
       # Verify a few rows
@@ -293,7 +291,7 @@ defmodule Natch.QueryTest do
     end
 
     test "returns error for invalid query", %{conn: conn, table: _table} do
-      result = Connection.select_rows(conn, "SELECT * FROM nonexistent_table")
+      result = Natch.select_rows(conn, "SELECT * FROM nonexistent_table")
       assert {:error, _reason} = result
     end
   end
@@ -301,7 +299,7 @@ defmodule Natch.QueryTest do
   describe "Complete insert/query cycle" do
     test "can insert and query back all types", %{conn: conn, table: table} do
       # Create table
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         value Int64,
@@ -332,7 +330,7 @@ defmodule Natch.QueryTest do
 
       # Query back
       assert {:ok, select_rows} =
-               Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+               Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
 
       assert length(select_rows) == 2
 
@@ -356,7 +354,7 @@ defmodule Natch.QueryTest do
 
   describe "New column types integration" do
     test "can insert and query Bool values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         is_active Bool
@@ -367,13 +365,13 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2, 3], is_active: [true, false, true]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
       assert [%{id: 1, is_active: 1}, %{id: 2, is_active: 0}, %{id: 3, is_active: 1}] = result
     end
 
     test "can insert and query Date values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         event_date Date
@@ -384,7 +382,7 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2], event_date: [~D[2024-01-15], ~D[2024-12-31]]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       # Date is returned as days since epoch (uint16)
@@ -396,7 +394,7 @@ defmodule Natch.QueryTest do
     end
 
     test "can insert and query Float32 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         price Float32
@@ -407,14 +405,14 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2], price: [19.99, -5.5]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
       assert_in_delta Enum.at(result, 0).price, 19.99, 0.01
       assert_in_delta Enum.at(result, 1).price, -5.5, 0.01
     end
 
     test "can insert and query UInt32 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         count UInt32
@@ -425,12 +423,12 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2, 3], count: [0, 1000, 4_294_967_295]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{count: 0}, %{count: 1000}, %{count: 4_294_967_295}] = result
     end
 
     test "can insert and query UInt16 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         port UInt16
@@ -441,12 +439,12 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2, 3], port: [0, 8080, 65_535]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{port: 0}, %{port: 8080}, %{port: 65_535}] = result
     end
 
     test "can insert and query Int32 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         temperature Int32
@@ -457,14 +455,14 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2, 3], temperature: [-2_147_483_648, 0, 2_147_483_647]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
 
       assert [%{temperature: -2_147_483_648}, %{temperature: 0}, %{temperature: 2_147_483_647}] =
                result
     end
 
     test "can insert and query Int16 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         offset Int16
@@ -475,12 +473,12 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2, 3], offset: [-32_768, 0, 32_767]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{offset: -32_768}, %{offset: 0}, %{offset: 32_767}] = result
     end
 
     test "can insert and query Int8 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         delta Int8
@@ -491,12 +489,12 @@ defmodule Natch.QueryTest do
       columns = %{id: [1, 2, 3], delta: [-128, 0, 127]}
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert [%{delta: -128}, %{delta: 0}, %{delta: 127}] = result
     end
 
     test "can insert and query mixed new types", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         is_enabled Bool,
@@ -536,7 +534,7 @@ defmodule Natch.QueryTest do
 
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 2
 
       # Verify first row
@@ -553,7 +551,7 @@ defmodule Natch.QueryTest do
     end
 
     test "can insert and query UUID values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         user_id UUID
@@ -573,7 +571,7 @@ defmodule Natch.QueryTest do
 
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       # Verify UUIDs are returned as strings
@@ -583,7 +581,7 @@ defmodule Natch.QueryTest do
     end
 
     test "can insert and query DateTime64 values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         timestamp DateTime64(6)
@@ -603,7 +601,7 @@ defmodule Natch.QueryTest do
 
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       # Verify timestamps are returned as microsecond integers
@@ -613,7 +611,7 @@ defmodule Natch.QueryTest do
     end
 
     test "can insert and query Decimal values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         price Decimal64(9)
@@ -633,7 +631,7 @@ defmodule Natch.QueryTest do
 
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 3
 
       # Verify decimals are returned as scaled int64 values
@@ -644,7 +642,7 @@ defmodule Natch.QueryTest do
     end
 
     test "can insert and query Nullable values", %{conn: conn, table: table} do
-      Connection.execute(conn, """
+      Natch.execute(conn, """
       CREATE TABLE #{table} (
         id UInt64,
         name Nullable(String),
@@ -662,7 +660,7 @@ defmodule Natch.QueryTest do
 
       assert :ok = Natch.insert(conn, table, columns, schema)
 
-      {:ok, result} = Connection.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
+      {:ok, result} = Natch.select_rows(conn, "SELECT * FROM #{table} ORDER BY id")
       assert length(result) == 4
 
       # Verify nullable values are returned correctly
