@@ -61,7 +61,7 @@ defmodule Natch.MixProject do
       {:elixir_make, "~> 0.6", runtime: false},
       {:cc_precompiler, "~> 0.1.0", runtime: false},
       {:jason, "~> 1.4"},
-      {:decimal, "~> 2.0"},
+      {:decimal, "~> 2.0 or ~> 3.0"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:benchee, "~> 1.3", only: :dev},
       {:benchee_html, "~> 1.0", only: :dev},
