@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     liblz4-dev \
     libzstd-dev \
     libssl-dev \
+    libsctp1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
