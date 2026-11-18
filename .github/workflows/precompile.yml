@@ -18,8 +18,8 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "28.1"
-          elixir-version: "1.19.1"
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
 
       - name: Install cross-compilation toolchains
         run: |
@@ -58,8 +58,8 @@ jobs:
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "28.1"
-          elixir-version: "1.19.1"
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
 
       - name: Install dependencies
         run: |

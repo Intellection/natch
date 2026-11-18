@@ -1,4 +1,4 @@
-FROM hexpm/elixir:1.18.4-erlang-27.3.4.4-ubuntu-noble-20251001
+FROM hexpm/elixir:1.20.5-erlang-29.1.2-ubuntu-noble-20261024.1
 
 # Install build tools, valgrind, and ClickHouse dependencies
 RUN apt-get update && apt-get install -y \

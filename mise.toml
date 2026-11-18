@@ -1,0 +1,4 @@
+[tools]
+elixir = "1.20.5-otp-29"
+erlang = "29.1.2"
+rust = "nightly"
